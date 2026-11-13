@@ -62,23 +62,26 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 try {
   await setup.renderOnce();
   const lines = setup.captureCharFrame().split("\n");
-  const row = lines.findIndex((line) => line.includes("/Alpha"));
+  assert.ok(lines.some((line) => line.includes("@ Skills")), "Heading starts with an at sign and a space");
+  const row = lines.findIndex((line) => line.includes("Alpha"));
   assert.ok(row >= 0, "Skill should be visible before hovering");
-  const column = lines[row].indexOf("/Alpha");
+  const column = lines[row].indexOf("Alpha");
   const findText = (node, text) => node.plainText === text ? node
     : node.getChildren().map((child) => findText(child, text)).find(Boolean);
-  const skillRow = findText(setup.renderer.root, "/Alpha");
+  const skillRow = findText(setup.renderer.root, "Alpha");
   assert.deepEqual(skillRow.fg, blue, "Repository skill starts in the info color");
-  assert.deepEqual(findText(setup.renderer.root, "/Builtin").fg, purple, "Built-in skill uses the accent color");
-  assert.deepEqual(findText(setup.renderer.root, "/Global").fg, muted, "Global skill uses the original muted gray");
-  assert.deepEqual(findText(setup.renderer.root, "/Other").fg, muted, "Unknown source stays muted");
+  assert.deepEqual(findText(setup.renderer.root, "Builtin").fg, purple, "Built-in skill uses the accent color");
+  assert.deepEqual(findText(setup.renderer.root, "Global").fg, muted, "Global skill uses the original muted gray");
+  assert.deepEqual(findText(setup.renderer.root, "Other").fg, muted, "Unknown source stays muted");
   await setup.mockMouse.moveTo(column + 2, row);
   await setup.renderOnce();
   assert.deepEqual(skillRow.fg, white, "Skill highlights immediately, before the hover card delay");
   await wait(350);
   await setup.renderOnce();
   const frame = setup.captureCharFrame();
-  assert.equal(frame.split("/Alpha").length - 1, 2, "Sidebar row and hover title both start with a slash");
+  assert.equal(frame.split("Alpha").length - 1, 2, "Sidebar row and hover title both show the skill name");
+  assert.ok(frame.includes("@Alpha"), "Hover title starts with an at sign");
+  assert.ok(!frame.includes("/Alpha"), "Sidebar row and hover title do not have a slash prefix");
   assert.ok(frame.includes("A distinctive hover description."), "Hover description should be visible");
   assert.ok(frame.includes("Location: Repo"), "Source scope should be visible");
   const sourceLine = findText(setup.renderer.root, "Location: Repo");
@@ -106,13 +109,13 @@ try {
   prompt.focus();
   await setup.mockMouse.click(column + 2, row);
   await wait(50);
-  assert.equal(prompt.plainText, "Existing text /alpha ", "Click inserts ID, slash and one trailing space without replacing existing input");
+  assert.equal(prompt.plainText, "Existing text @alpha ", "Click inserts ID, at sign and one trailing space without replacing existing input");
   assert.equal(submits, 0, "Click must not submit the prompt");
   assert.equal(setup.renderer.currentFocusedEditor, prompt, "Prompt keeps keyboard focus");
   await setup.mockMouse.click(column + 2, row, 2);
   await wait(50);
-  assert.equal(prompt.plainText, "Existing text /alpha ", "Right-click must not insert anything");
-  console.log("PASS: hover visibility and dismissal; left-click inserts /skill-id with one space, preserves input/focus, and does not submit; right-click does nothing.");
+  assert.equal(prompt.plainText, "Existing text @alpha ", "Right-click must not insert anything");
+  console.log("PASS: heading and unprefixed skill names; hover visibility and dismissal; left-click inserts @skill-id with one space, preserves input/focus, and does not submit; right-click does nothing.");
 } finally {
   setup.renderer.destroy();
 }

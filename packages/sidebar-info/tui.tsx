@@ -109,7 +109,7 @@ export default Plugin.define({
 
         return (
           <box flexDirection="column" flexShrink={0} marginTop={1}>
-            <text fg={context.theme.text.base}><b>{title}</b></text>
+            <text fg={context.theme.text.base}><b>@ {title}</b></text>
             <Show when={skills().length > 0} fallback={<text fg={context.theme.text.base}>{status()}</text>}>
               <box flexDirection="column" paddingLeft={2} flexShrink={0}>
                 <For each={skills()}>{(skill) => (
@@ -124,7 +124,7 @@ export default Plugin.define({
                       event.stopPropagation();
                     }}
                     onMouseUp={(event) => { void insertSkill(skill, event); }}
-                    onMouseScroll={dismiss}>/{skill.name}</text>
+                    onMouseScroll={dismiss}>{skill.name}</text>
                 )}</For>
               </box>
             </Show>
@@ -147,7 +147,7 @@ export default Plugin.define({
                   onMouseOver={keepOpen} onMouseOut={leaveHover}>
                   <scrollbox flexGrow={1} minHeight={0} scrollX={false} scrollY={true}
                     contentOptions={{ flexDirection: "column", gap: 1 }}>
-                    <text fg={context.theme.text.base} wrapMode="word" flexShrink={0}><b>/{skill().name}</b></text>
+                    <text fg={context.theme.text.base} wrapMode="word" flexShrink={0}><b>@{skill().name}</b></text>
                     <text fg={context.theme.text.muted} wrapMode="word" flexShrink={0}>
                       Location: <span style={{ fg: sourceColor(skill()) }}>{scope(skill())}</span>
                     </text>

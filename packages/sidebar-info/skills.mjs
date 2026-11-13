@@ -8,7 +8,7 @@ export function sortedSkills(skills) {
 /** Use the invocable ID, not a potentially different frontmatter display name. */
 export function skillPromptText(skill) {
   if (!skill.id || /[\r\n]/.test(skill.id)) throw new Error("Skill ID must be a non-empty single line");
-  return `/${skill.id} `;
+  return `@${skill.id} `;
 }
 
 /** Classify registry paths without reading skill contents or the filesystem. */

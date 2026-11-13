@@ -22,8 +22,8 @@ test("handles an empty skill list", () => {
   assert.deepEqual(sortedSkills([]), []);
 });
 
-test("prompt insertion uses the skill ID with a slash and exactly one trailing space", () => {
-  assert.equal(skillPromptText({ id: "alpha", name: "Alpha Display Name" }), "/alpha ");
+test("prompt insertion uses the skill ID with an at sign and exactly one trailing space", () => {
+  assert.equal(skillPromptText({ id: "alpha", name: "Alpha Display Name" }), "@alpha ");
   assert.throws(() => skillPromptText({ id: "bad\nname" }));
   assert.throws(() => skillPromptText({ id: "bad\rname" }));
 });
