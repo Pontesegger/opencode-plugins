@@ -1,5 +1,5 @@
 import { usePlugin } from "@opencode/plugin/tui";
-import { createMemo, Show } from "solid-js";
+import { createMemo, createSignal, Show } from "solid-js";
 import { barState, formatTokens, latestUsage } from "./usage.mjs";
 
 const colors = {
@@ -10,6 +10,7 @@ const colors = {
 
 export function UsageBar(props: { sessionID?: string; mode: string; onToggle: () => void }) {
   const context = usePlugin();
+  const [hovered, setHovered] = createSignal(false);
   const usage = createMemo(() => props.sessionID
     ? latestUsage(context.data.session.message.list(props.sessionID))
     : undefined);
@@ -31,7 +32,9 @@ export function UsageBar(props: { sessionID?: string; mode: string; onToggle: ()
   return (
     <Show when={props.sessionID && props.mode === "normal"}>
       <box flexDirection="row" paddingLeft={1} flexShrink={0}>
-        <text fg={context.theme.text.base} selectable={false}
+        <text fg={hovered() ? context.theme.text.base : context.theme.text.muted} selectable={false}
+          onMouseOver={() => setHovered(true)}
+          onMouseOut={() => setHovered(false)}
           onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); }}
           onMouseUp={(event) => {
             if (event.button !== 0) return;

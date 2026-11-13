@@ -5,6 +5,7 @@
 - The context-usage row below the prompt footer stays visible. Click **Context**
   immediately left of its progress bar to show/hide the component details above
   the prompt. Only the label toggles details, not the progress bar or token count.
+  The label is muted gray and highlights in the theme's bright text color on hover.
 - `/context`: the same show/hide toggle for keyboard access.
 - Click a colored block **or its legend label** to view captured text in a
   dedicated, scrollable read-only inspector, centered at 80% of screen width.
@@ -13,6 +14,8 @@
   Click a heading or use Left/Right; the selected heading is bracketed.
   Switching keeps the same captured revision and resets scrolling to the top.
 - Inspector: Esc closes; Up/Down, Page Up/Down, Home/End, or mouse wheel scroll.
+- Horizontal rules separate the fixed header and navigation footer from the
+  scrollable content, using the active theme's border color.
 - Shift+Up/Down jumps to the previous/next heading in the current category:
   entry titles and Markdown headings within captured text (excluding fenced
   code examples). Jumps follow the current scroll position, account for wrapped

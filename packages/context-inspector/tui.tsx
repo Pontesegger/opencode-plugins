@@ -151,7 +151,8 @@ export default Plugin.define({
               {inspection()?.model} · snapshot {inspection()?.revision} · {new Date(inspection()?.capturedAt ?? 0).toLocaleString()}
             </text>
             <text width={contentWidth()} height={2} flexShrink={0} wrapMode="word" fg={context.theme.text.base}>Captured assembled context, not the provider HTTP payload. Token counts are estimates.</text>
-            <scrollbox width={contentWidth()} height={Math.max(1, size().height - 10)} flexShrink={0}
+            <text width={contentWidth()} height={1} flexShrink={0} fg={context.theme.border.base} selectable={false}>{"─".repeat(contentWidth())}</text>
+            <scrollbox width={contentWidth()} height={Math.max(1, size().height - 12)} flexShrink={0}
               ref={(value) => { scroll = value; }} scrollX={false} scrollY={true} focused
               contentOptions={{ width: contentWidth(), flexDirection: "column", gap: 1 }}>
               <For each={inspection()?.section.entries}>{(entry) => {
@@ -167,6 +168,7 @@ export default Plugin.define({
               }}</For>
               <For each={inspection()?.warnings}>{(warning) => <text width={contentWidth() - 1} wrapMode="word" flexShrink={0} fg="#facc15">Note: {warning}</text>}</For>
             </scrollbox>
+            <text width={contentWidth()} height={1} flexShrink={0} fg={context.theme.border.base} selectable={false}>{"─".repeat(contentWidth())}</text>
             <text width={contentWidth()} height={2} flexShrink={0} wrapMode="word" fg={context.theme.text.base}>Read-only · Esc close · ←/→ category · Shift+↑/↓ heading · ↑/↓/wheel/PgUp/PgDn scroll · Home/End</text>
           </box>
         </box>
