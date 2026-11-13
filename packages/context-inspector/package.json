@@ -1,0 +1,30 @@
+{
+  "name": "opencode-context-inspector",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Context usage bar and read-only captured context inspector for OpenCode V2.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pontesegger/opencode-plugins.git",
+    "directory": "packages/context-inspector"
+  },
+  "homepage": "https://github.com/Pontesegger/opencode-plugins/tree/main/packages/context-inspector#readme",
+  "bugs": { "url": "https://github.com/Pontesegger/opencode-plugins/issues" },
+  "keywords": ["opencode", "opencode-plugin", "context", "inspector"],
+  "type": "module",
+  "exports": {
+    ".": "./server.ts",
+    "./tui": "./tui.tsx",
+    "./rpc": "./rpc.ts"
+  },
+  "files": ["LICENSE", "server.ts", "tui.tsx", "rpc.ts", "types.ts", "usage-bar.tsx", "snapshot.mjs", "headings.mjs", "usage.mjs"],
+  "engines": { "node": ">=26.4.0" },
+  "dependencies": { "@opencode/plugin": "2.2.7" },
+  "peerDependencies": {
+    "@opentui/core": "^0.8.4",
+    "@opentui/solid": "^0.8.4",
+    "solid-js": "^1.9.16"
+  },
+  "scripts": { "test": "node --test *.test.mjs" }
+}

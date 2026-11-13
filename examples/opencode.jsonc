@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  // Replace this example path with the absolute path to your checkout.
+  // Keep Context Inspector after other context-modifying plugins where possible.
+  "plugins": [
+    {
+      "package": "/path/to/opencode-plugins/packages/context-inspector",
+      "options": {
+        "showMcp": true,
+        "width": 20,
+        "greenBelow": 150000,
+        "yellowThrough": 0.5
+      }
+    }
+  ]
+}

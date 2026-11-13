@@ -1,0 +1,8 @@
+{
+  "plugins": [
+    {
+      "package": "/path/to/opencode-plugins/packages/sidebar-info",
+      "options": { "title": "Skills" }
+    }
+  ]
+}
