@@ -2,10 +2,17 @@
 
 OpenCode V2 TUI plugin that lists available skills in the right sidebar,
 sorted alphabetically by display name (case-insensitive, with ID tie-breaking).
-Skill names are indented two columns, prefixed with `/`, and rendered in the
-theme's muted text color to distinguish them from the heading.
+Skill names are indented two columns, prefixed with `/`, and colored by source:
+
+- **Global**: the theme's original muted text color (gray).
+- **Built-in**: the theme's accent color.
+- **Repo / workspace**: the theme's info text color (typically blue).
+- **Other**: muted text for unclassified sources.
+
+Colors follow the active theme, including light/dark mode. The hover card's
+location value uses the same color; the `Location:` label stays muted gray.
 Hovering highlights the skill name immediately in the heading's bright text
-color; leaving the row restores its original muted color.
+color; leaving the row restores its source color.
 Hover over a skill for 250 ms to show a card with its name, source scope, and
 description. The card disappears shortly after the pointer leaves the skill and
 card, on a skill click/scroll, terminal blur, resize, or session/location changes.
@@ -15,7 +22,7 @@ Left-click a skill to insert `/skill-id ` at the prompt cursor, preserving exist
 input and returning focus to the prompt. The inserted text has exactly one
 trailing space, no newline, and is never automatically submitted. The invocable
 skill ID is used even when the display name differs. Right-click does not insert.
-Sources are classified from registry paths: User for standard home skill
+Sources are classified from registry paths: Global for standard home skill
 directories, Repo for project-local paths (including ancestor project skill
 directories), Built-in for `skill://` paths, and Other for unclassified sources.
 Uses OpenCode's reactive skill registry for the current session's location,

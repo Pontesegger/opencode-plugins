@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { skillPromptText, skillScope, sortedSkills, tooltipPlacement } from "./skills.mjs";
+import { skillPromptText, skillScope, skillScopeColor, sortedSkills, tooltipPlacement } from "./skills.mjs";
 
 test("sorts skill display names alphabetically, ignoring case", () => {
   const skills = [
@@ -28,17 +28,29 @@ test("prompt insertion uses the skill ID with a slash and exactly one trailing s
   assert.throws(() => skillPromptText({ id: "bad\rname" }));
 });
 
-test("distinguishes user, repo, ancestor-repo, built-in, and other skill sources", () => {
+test("distinguishes global, repo, ancestor-repo, built-in, and other skill sources", () => {
   const scope = (path, directory = "/home/test/project/packages/app") => skillScope(path, directory, "/home/test");
-  assert.equal(scope("/home/test/.config/opencode/skills/review/SKILL.md"), "User");
-  assert.equal(scope("/home/test/.claude/skills/review/SKILL.md"), "User");
-  assert.equal(scope("/home/test/.agents/skills/review/SKILL.md"), "User");
+  assert.equal(scope("/home/test/.config/opencode/skills/review/SKILL.md"), "Global");
+  assert.equal(scope("/home/test/.claude/skills/review/SKILL.md"), "Global");
+  assert.equal(scope("/home/test/.agents/skills/review/SKILL.md"), "Global");
   assert.equal(scope("/home/test/project/.opencode/skills/review/SKILL.md"), "Repo");
   assert.equal(scope("/home/test/project/packages/app/custom-skills/review.md"), "Repo");
   assert.equal(scope("skill://opencode"), "Built-in");
   assert.equal(scope("/shared/skills/review.md"), "Other");
   assert.equal(scope("/home/test/project-other/.opencode/skills/review.md"), "Other");
   assert.equal(scope(undefined), "Other");
+});
+
+test("assigns distinct theme colors to skill sources and keeps unknown sources muted", () => {
+  const theme = {
+    text: { muted: "gray", feedback: { info: { base: "blue" }, success: { base: "green" } } },
+    hue: { accent: { 500: "purple" } },
+  };
+  assert.equal(skillScopeColor("Global", theme), "gray");
+  assert.equal(skillScopeColor("Built-in", theme), "purple");
+  assert.equal(skillScopeColor("Repo", theme), "blue");
+  assert.equal(skillScopeColor("Other", theme), "gray");
+  assert.equal(skillScopeColor(undefined, theme), "gray");
 });
 
 test("places hover cards left of sidebar rows and inside terminal bounds", () => {

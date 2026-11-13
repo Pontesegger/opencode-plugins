@@ -3,7 +3,7 @@ import { Portal } from "@opentui/solid";
 import type { MouseEvent } from "@opentui/core";
 import { homedir } from "node:os";
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
-import { skillPromptText, skillScope, sortedSkills, tooltipPlacement } from "./skills.mjs";
+import { skillPromptText, skillScope, skillScopeColor, sortedSkills, tooltipPlacement } from "./skills.mjs";
 
 export default Plugin.define({
   id: "local.sidebar-info",
@@ -18,6 +18,8 @@ export default Plugin.define({
         const location = createMemo(() => context.data.session.get(props.sessionID)?.location
           ?? context.location ?? context.data.location.default());
         const skills = createMemo(() => sortedSkills(context.data.location.skill.list(location()) ?? []));
+        const scope = (skill) => skillScope(skill.path, location()?.directory, homedir());
+        const sourceColor = (skill) => skillScopeColor(scope(skill), context.theme);
         const [status, setStatus] = createSignal("Loading skills…");
         const [hoveredID, setHoveredID] = createSignal<string>();
         const [pointedID, setPointedID] = createSignal<string>();
@@ -111,7 +113,7 @@ export default Plugin.define({
             <Show when={skills().length > 0} fallback={<text fg={context.theme.text.base}>{status()}</text>}>
               <box flexDirection="column" paddingLeft={2} flexShrink={0}>
                 <For each={skills()}>{(skill) => (
-                  <text fg={pointedID() === skill.id ? context.theme.text.base : context.theme.text.muted}
+                  <text fg={pointedID() === skill.id ? context.theme.text.base : sourceColor(skill)}
                     wrapMode="word" selectable={false}
                     onMouseOver={(event) => beginHover(skill.id, event)}
                     onMouseOut={leaveHover}
@@ -145,9 +147,9 @@ export default Plugin.define({
                   onMouseOver={keepOpen} onMouseOut={leaveHover}>
                   <scrollbox flexGrow={1} minHeight={0} scrollX={false} scrollY={true}
                     contentOptions={{ flexDirection: "column", gap: 1 }}>
-                    <text fg={context.theme.text.base} wrapMode="word" flexShrink={0}><b>{skill().name}</b></text>
+                    <text fg={context.theme.text.base} wrapMode="word" flexShrink={0}><b>/{skill().name}</b></text>
                     <text fg={context.theme.text.muted} wrapMode="word" flexShrink={0}>
-                      Location: {skillScope(skill().path, location()?.directory, homedir())}
+                      Location: <span style={{ fg: sourceColor(skill()) }}>{scope(skill())}</span>
                     </text>
                     <text fg={context.theme.text.muted} wrapMode="word" flexShrink={0}>
                       {skill().description?.trim() || "No description available."}

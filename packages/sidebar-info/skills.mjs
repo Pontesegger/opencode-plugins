@@ -15,7 +15,7 @@ export function skillPromptText(skill) {
 export function skillScope(path, directory, home) {
   if (!path || /^[a-z][a-z\d+.-]*:/i.test(path)) return path?.startsWith("skill:") ? "Built-in" : "Other";
   const inside = (parent) => parent && (path === parent || path.startsWith(`${parent.replace(/\/$/, "")}/`));
-  if ([`${home}/.config/opencode`, `${home}/.claude/skills`, `${home}/.agents/skills`].some(inside)) return "User";
+  if ([`${home}/.config/opencode`, `${home}/.claude/skills`, `${home}/.agents/skills`].some(inside)) return "Global";
   // Project skills can live above the session directory in a monorepo.
   for (const marker of ["/.opencode/skills/", "/.claude/skills/", "/.agents/skills/"]) {
     const index = path.indexOf(marker);
@@ -26,6 +26,16 @@ export function skillScope(path, directory, home) {
   }
   if (inside(directory)) return "Repo";
   return "Other";
+}
+
+/** Use theme colors so source distinctions work in both light and dark modes. */
+export function skillScopeColor(scope, theme) {
+  switch (scope) {
+    case "Global": return theme.text.muted;
+    case "Built-in": return theme.hue.accent[500];
+    case "Repo": return theme.text.feedback.info.base;
+    default: return theme.text.muted;
+  }
 }
 
 /** Place the card beside the sidebar row, clamped to the render region. */
