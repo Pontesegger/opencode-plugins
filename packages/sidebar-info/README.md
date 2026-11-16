@@ -1,9 +1,29 @@
 # Sidebar info
 
 OpenCode V2 TUI plugin that lists available skills in the right sidebar,
-sorted alphabetically by display name (case-insensitive, with ID tie-breaking).
-The heading is `@ Skills` by default. Skill names are indented two columns,
-shown without a prefix in the list, and colored by source:
+split into used skills above and remaining skills below an indented muted-gray
+horizontal line. Each group is sorted alphabetically by display name
+(case-insensitive, with ID tie-breaking). Successfully clicking a skill moves it
+to the upper group without duplicating it. The upper group contains skills clicked
+within the previous seven days; older skills remain available below the line.
+
+Usage is a user-level plugin setting stored with OpenCode's durable TUI storage
+under `skill-usage`, as a `lastClicked` map of skill IDs to Unix timestamps in
+milliseconds. Every successful left-click insertion refreshes that skill's
+timestamp, including clicks on already-preferred skills. History is shared across
+sessions and survives plugin reloads and OpenCode restarts; OpenCode synchronizes
+it across running TUI instances. On startup, the preferred group is rebuilt from
+the saved timestamps, excluding clicks seven days old or older. It is also
+recomputed when usage or the available skill list changes. Expired timestamps
+are retained as history, not deleted. No manual configuration is required.
+The heading is `@ Skills` by default. Skill names are indented two columns
+and shown without a prefix in neutral muted text. Each row has a right-aligned
+colored dot (`●`) for repo and built-in origins only; global/user and unclassified
+skills have no dot. Two blank columns after the dot separate it from the
+scrollbar. The indicator column stays reserved for skills without dots.
+Long names wrap in the space before the dot
+without pushing it off the edge. The hover card keeps full source labels.
+The dot and hover card's location value use the same source colors:
 
 - **Global**: the theme's original muted text color (gray).
 - **Built-in**: the theme's accent color.
@@ -11,9 +31,9 @@ shown without a prefix in the list, and colored by source:
 - **Other**: muted text for unclassified sources.
 
 Colors follow the active theme, including light/dark mode. The hover card's
-location value uses the same color; the `Location:` label stays muted gray.
+`Location:` label stays muted gray.
 Hovering highlights the skill name immediately in the heading's bright text
-color; leaving the row restores its source color.
+color; leaving the row restores its neutral color. The dot keeps its source color.
 Hover over a skill for 250 ms to show a card with its name prefixed by `@`, source scope, and
 description. The card disappears shortly after the pointer leaves the skill and
 card, on a skill click/scroll, terminal blur, resize, or session/location changes.

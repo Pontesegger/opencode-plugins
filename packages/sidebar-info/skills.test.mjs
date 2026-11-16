@@ -1,6 +1,35 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { skillPromptText, skillScope, skillScopeColor, sortedSkills, tooltipPlacement } from "./skills.mjs";
+import { recentSkillIDs, skillGroups, skillPromptText, skillScope, skillScopeColor, sortedSkills, tooltipPlacement } from "./skills.mjs";
+
+test("prefers only clicks less than seven days old, retaining the stored history", () => {
+  const now = 1_800_000_000_000;
+  const week = 7 * 24 * 60 * 60 * 1000;
+  const history = {
+    fresh: now, recent: now - week + 1, boundary: now - week,
+    old: now - week - 1, future: now + 1, invalid: "yesterday",
+    missing: null, infinite: Infinity, nan: NaN,
+  };
+  assert.deepEqual(recentSkillIDs(history, now), ["fresh", "recent"]);
+  assert.equal(history.old, now - week - 1, "Expired history is not deleted");
+  assert.deepEqual(recentSkillIDs({}, now), []);
+  assert.deepEqual(recentSkillIDs({ alpha: now }, now + week), []);
+  assert.deepEqual(recentSkillIDs({ alpha: now + week }, now + week), ["alpha"]);
+});
+
+test("groups clicked skills above remaining skills, sorting each group without duplicates", () => {
+  const skills = [
+    { id: "z", name: "Zulu" }, { id: "b", name: "beta" },
+    { id: "a", name: "Alpha" }, { id: "g", name: "Gamma" },
+  ];
+  const groups = skillGroups(skills, ["z", "a", "a", "removed"]);
+  assert.deepEqual(groups.used.map((skill) => skill.id), ["a", "z"]);
+  assert.deepEqual(groups.available.map((skill) => skill.id), ["b", "g"]);
+  assert.deepEqual(skillGroups(skills, []).used, []);
+  assert.deepEqual(skillGroups(skills, skills.map((skill) => skill.id)).available, []);
+  assert.deepEqual(skillGroups([], ["a"]), { used: [], available: [] });
+  assert.deepEqual(skills.map((skill) => skill.id), ["z", "b", "a", "g"]);
+});
 
 test("sorts skill display names alphabetically, ignoring case", () => {
   const skills = [

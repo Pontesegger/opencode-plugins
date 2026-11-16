@@ -3,7 +3,7 @@ import { Portal } from "@opentui/solid";
 import type { MouseEvent } from "@opentui/core";
 import { homedir } from "node:os";
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
-import { skillPromptText, skillScope, skillScopeColor, sortedSkills, tooltipPlacement } from "./skills.mjs";
+import { recentSkillIDs, skillGroups, skillPromptText, skillScope, skillScopeColor, tooltipPlacement } from "./skills.mjs";
 
 export default Plugin.define({
   id: "local.sidebar-info",
@@ -11,13 +11,17 @@ export default Plugin.define({
     const title = typeof context.options.title === "string"
       ? context.options.title
       : "Skills";
+    const [usage, updateUsage] = context.storage.store<{ lastClicked: Record<string, number> }>("skill-usage", {
+      initial: { lastClicked: {} },
+    });
 
     return context.ui.slot({
       append: "sidebar.content",
       render: (props) => {
         const location = createMemo(() => context.data.session.get(props.sessionID)?.location
           ?? context.location ?? context.data.location.default());
-        const skills = createMemo(() => sortedSkills(context.data.location.skill.list(location()) ?? []));
+        const skills = createMemo(() => context.data.location.skill.list(location()) ?? []);
+        const groups = createMemo(() => skillGroups(skills(), recentSkillIDs(usage.lastClicked)));
         const scope = (skill) => skillScope(skill.path, location()?.directory, homedir());
         const sourceColor = (skill) => skillScopeColor(scope(skill), context.theme);
         const [status, setStatus] = createSignal("Loading skills…");
@@ -73,6 +77,15 @@ export default Plugin.define({
             editor.focus();
           } catch {
             context.ui.toast.show({ message: "Unable to insert the skill. Focus the prompt and try again.", variant: "warning" });
+            return;
+          }
+          const clickedAt = Date.now();
+          try {
+            await updateUsage((draft) => {
+              draft.lastClicked[skill.id] = clickedAt;
+            });
+          } catch {
+            context.ui.toast.show({ message: "Skill inserted, but its usage could not be saved.", variant: "warning" });
           }
         };
         // Geometry changes invalidate the old row anchor; do not leave a stale card.
@@ -107,25 +120,37 @@ export default Plugin.define({
           });
         });
 
+        const SkillRows = (rows) => (
+          <For each={rows.skills}>{(skill) => (
+            <box flexDirection="row" width="100%" flexShrink={0} gap={1} paddingRight={2}
+              onMouseOver={(event) => beginHover(skill.id, event)}
+              onMouseOut={leaveHover}
+              onMouseDown={(event) => {
+                dismiss();
+                pressedID = event.button === 0 ? skill.id : undefined;
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+              onMouseUp={(event) => { void insertSkill(skill, event); }}
+              onMouseScroll={dismiss}>
+              <text fg={pointedID() === skill.id ? context.theme.text.base : context.theme.text.muted}
+                flexGrow={1} flexShrink={1} minWidth={0} wrapMode="word" selectable={false}>{skill.name}</text>
+              <text fg={sourceColor(skill)} flexShrink={0} selectable={false}>
+                {scope(skill) === "Repo" || scope(skill) === "Built-in" ? "●" : " "}
+              </text>
+            </box>
+          )}</For>
+        );
+
         return (
           <box flexDirection="column" flexShrink={0} marginTop={1}>
             <text fg={context.theme.text.base}><b>@ {title}</b></text>
             <Show when={skills().length > 0} fallback={<text fg={context.theme.text.base}>{status()}</text>}>
               <box flexDirection="column" paddingLeft={2} flexShrink={0}>
-                <For each={skills()}>{(skill) => (
-                  <text fg={pointedID() === skill.id ? context.theme.text.base : sourceColor(skill)}
-                    wrapMode="word" selectable={false}
-                    onMouseOver={(event) => beginHover(skill.id, event)}
-                    onMouseOut={leaveHover}
-                    onMouseDown={(event) => {
-                      dismiss();
-                      pressedID = event.button === 0 ? skill.id : undefined;
-                      event.preventDefault();
-                      event.stopPropagation();
-                    }}
-                    onMouseUp={(event) => { void insertSkill(skill, event); }}
-                    onMouseScroll={dismiss}>{skill.name}</text>
-                )}</For>
+                <SkillRows skills={groups().used} />
+                <box height={1} width="100%" flexShrink={0} border={["bottom"]}
+                  borderColor={context.theme.text.muted} />
+                <SkillRows skills={groups().available} />
               </box>
             </Show>
             <Show when={hovered()}>{(skill) => (

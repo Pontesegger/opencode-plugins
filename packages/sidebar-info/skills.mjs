@@ -5,6 +5,24 @@ export function sortedSkills(skills) {
     || left.id.localeCompare(right.id, "en"));
 }
 
+/** Keep used skills above the remaining registry entries, alphabetically in each group. */
+export function skillGroups(skills, usedIDs) {
+  const used = new Set(usedIDs);
+  const sorted = sortedSkills(skills);
+  return {
+    used: sorted.filter((skill) => used.has(skill.id)),
+    available: sorted.filter((skill) => !used.has(skill.id)),
+  };
+}
+
+/** Persist all history, but prefer only valid clicks from the previous seven days. */
+export function recentSkillIDs(lastClicked, now = Date.now()) {
+  const week = 7 * 24 * 60 * 60 * 1000;
+  return Object.entries(lastClicked).filter(([, timestamp]) =>
+    Number.isFinite(timestamp) && timestamp <= now && now - timestamp < week
+  ).map(([id]) => id);
+}
+
 /** Use the invocable ID, not a potentially different frontmatter display name. */
 export function skillPromptText(skill) {
   if (!skill.id || /[\r\n]/.test(skill.id)) throw new Error("Skill ID must be a non-empty single line");

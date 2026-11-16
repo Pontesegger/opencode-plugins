@@ -6,7 +6,7 @@ repository:
 | Package | Features | Configuration |
 | --- | --- | --- |
 | [Context Inspector](packages/context-inspector/README.md) | Context-usage row, component estimates, and read-only captured-context inspection | `opencode.json(c)` |
-| [Sidebar Info](packages/sidebar-info/README.md) | Alphabetical skill list, hover descriptions, and click-to-insert skill commands | Global `cli.json` |
+| [Sidebar Info](packages/sidebar-info/README.md) | Used/remaining skill groups, hover descriptions, and click-to-insert skill commands | Global `cli.json` |
 
 ## Status and compatibility
 
