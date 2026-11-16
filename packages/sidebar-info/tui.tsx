@@ -3,7 +3,7 @@ import { Portal } from "@opentui/solid";
 import type { MouseEvent } from "@opentui/core";
 import { homedir } from "node:os";
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
-import { recentSkillIDs, skillGroups, skillPromptText, skillScope, skillScopeColor, tooltipPlacement } from "./skills.mjs";
+import { recentSkillUseCount, recordSkillUse, skillPromptText, skillScope, skillScopeColor, skillUsageColor, sortedSkills, tooltipPlacement } from "./skills.mjs";
 
 export default Plugin.define({
   id: "local.sidebar-info",
@@ -11,7 +11,7 @@ export default Plugin.define({
     const title = typeof context.options.title === "string"
       ? context.options.title
       : "Skills";
-    const [usage, updateUsage] = context.storage.store<{ lastClicked: Record<string, number> }>("skill-usage", {
+    const [usage, updateUsage] = context.storage.store<{ lastClicked: Record<string, number | number[]> }>("skill-usage", {
       initial: { lastClicked: {} },
     });
 
@@ -20,8 +20,12 @@ export default Plugin.define({
       render: (props) => {
         const location = createMemo(() => context.data.session.get(props.sessionID)?.location
           ?? context.location ?? context.data.location.default());
-        const skills = createMemo(() => context.data.location.skill.list(location()) ?? []);
-        const groups = createMemo(() => skillGroups(skills(), recentSkillIDs(usage.lastClicked)));
+        const skills = createMemo(() => sortedSkills(context.data.location.skill.list(location()) ?? []));
+        const [now, setNow] = createSignal(Date.now());
+        // Let usage colors age out even when no skill is clicked or session changed.
+        const clock = setInterval(() => setNow(Date.now()), 60_000);
+        onCleanup(() => clearInterval(clock));
+        const usageColor = (skill) => skillUsageColor(recentSkillUseCount(usage.lastClicked[skill.id], now()), context.theme);
         const scope = (skill) => skillScope(skill.path, location()?.directory, homedir());
         const sourceColor = (skill) => skillScopeColor(scope(skill), context.theme);
         const [status, setStatus] = createSignal("Loading skills…");
@@ -80,9 +84,10 @@ export default Plugin.define({
             return;
           }
           const clickedAt = Date.now();
+          setNow(clickedAt);
           try {
             await updateUsage((draft) => {
-              draft.lastClicked[skill.id] = clickedAt;
+              draft.lastClicked[skill.id] = recordSkillUse(draft.lastClicked[skill.id], clickedAt);
             });
           } catch {
             context.ui.toast.show({ message: "Skill inserted, but its usage could not be saved.", variant: "warning" });
@@ -133,7 +138,7 @@ export default Plugin.define({
               }}
               onMouseUp={(event) => { void insertSkill(skill, event); }}
               onMouseScroll={dismiss}>
-              <text fg={pointedID() === skill.id ? context.theme.text.base : context.theme.text.muted}
+              <text fg={pointedID() === skill.id ? context.theme.text.base : usageColor(skill)}
                 flexGrow={1} flexShrink={1} minWidth={0} wrapMode="word" selectable={false}>{skill.name}</text>
               <text fg={sourceColor(skill)} flexShrink={0} selectable={false}>
                 {scope(skill) === "Repo" || scope(skill) === "Built-in" ? "●" : " "}
@@ -147,10 +152,7 @@ export default Plugin.define({
             <text fg={context.theme.text.base}><b>@ {title}</b></text>
             <Show when={skills().length > 0} fallback={<text fg={context.theme.text.base}>{status()}</text>}>
               <box flexDirection="column" paddingLeft={2} flexShrink={0}>
-                <SkillRows skills={groups().used} />
-                <box height={1} width="100%" flexShrink={0} border={["bottom"]}
-                  borderColor={context.theme.text.muted} />
-                <SkillRows skills={groups().available} />
+                <SkillRows skills={skills()} />
               </box>
             </Show>
             <Show when={hovered()}>{(skill) => (

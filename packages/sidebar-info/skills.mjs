@@ -5,22 +5,30 @@ export function sortedSkills(skills) {
     || left.id.localeCompare(right.id, "en"));
 }
 
-/** Keep used skills above the remaining registry entries, alphabetically in each group. */
-export function skillGroups(skills, usedIDs) {
-  const used = new Set(usedIDs);
-  const sorted = sortedSkills(skills);
-  return {
-    used: sorted.filter((skill) => used.has(skill.id)),
-    available: sorted.filter((skill) => !used.has(skill.id)),
-  };
+/** Read legacy single timestamps and retain the three newest uses, newest first. */
+export function lastSkillUses(value) {
+  return (Array.isArray(value) ? [...value] : [value])
+    .filter((timestamp) => Number.isFinite(timestamp) && timestamp >= 0)
+    .sort((left, right) => right - left).slice(0, 3);
 }
 
-/** Persist all history, but prefer only valid clicks from the previous seven days. */
-export function recentSkillIDs(lastClicked, now = Date.now()) {
+/** Preserve separate uses even when two clicks have the same timestamp. */
+export function recordSkillUse(value, now = Date.now()) {
+  return lastSkillUses([...lastSkillUses(value).filter((timestamp) => timestamp <= now), now]);
+}
+
+/** Old uses remain stored but stop contributing to the rolling weekly count. */
+export function recentSkillUseCount(value, now = Date.now()) {
   const week = 7 * 24 * 60 * 60 * 1000;
-  return Object.entries(lastClicked).filter(([, timestamp]) =>
-    Number.isFinite(timestamp) && timestamp <= now && now - timestamp < week
-  ).map(([id]) => id);
+  return lastSkillUses(value).filter((timestamp) => timestamp <= now && now - timestamp < week).length;
+}
+
+/** Usage intensity colors are independent of the origin indicator's theme colors. */
+export function skillUsageColor(count, theme) {
+  if (count >= 3) return "#86EFAC";
+  if (count === 2) return "#4CAF50";
+  if (count === 1) return "#228B22";
+  return theme.text.muted;
 }
 
 /** Use the invocable ID, not a potentially different frontmatter display name. */

@@ -1,34 +1,45 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { recentSkillIDs, skillGroups, skillPromptText, skillScope, skillScopeColor, sortedSkills, tooltipPlacement } from "./skills.mjs";
+import { lastSkillUses, recentSkillUseCount, recordSkillUse, skillPromptText, skillScope, skillScopeColor, skillUsageColor, sortedSkills, tooltipPlacement } from "./skills.mjs";
 
-test("prefers only clicks less than seven days old, retaining the stored history", () => {
+test("counts only the last three valid uses within the previous seven days", () => {
   const now = 1_800_000_000_000;
   const week = 7 * 24 * 60 * 60 * 1000;
-  const history = {
-    fresh: now, recent: now - week + 1, boundary: now - week,
-    old: now - week - 1, future: now + 1, invalid: "yesterday",
-    missing: null, infinite: Infinity, nan: NaN,
-  };
-  assert.deepEqual(recentSkillIDs(history, now), ["fresh", "recent"]);
-  assert.equal(history.old, now - week - 1, "Expired history is not deleted");
-  assert.deepEqual(recentSkillIDs({}, now), []);
-  assert.deepEqual(recentSkillIDs({ alpha: now }, now + week), []);
-  assert.deepEqual(recentSkillIDs({ alpha: now + week }, now + week), ["alpha"]);
+  assert.equal(recentSkillUseCount([now, now - week + 1, now - week], now), 2);
+  assert.equal(recentSkillUseCount([now + 1, now - week - 1], now), 0);
+  assert.equal(recentSkillUseCount([now, now - 1, now - 2, now - 3], now), 3);
+  for (const invalid of [undefined, null, "yesterday", Infinity, NaN, -1]) {
+    assert.equal(recentSkillUseCount(invalid, now), 0);
+  }
+  const history = [now, now - 1, now - 2];
+  assert.equal(recentSkillUseCount(history, now + week - 1), 1);
+  assert.equal(recentSkillUseCount(history, now + week), 0);
+  assert.deepEqual(history, [now, now - 1, now - 2], "Aging does not delete stored timestamps");
 });
 
-test("groups clicked skills above remaining skills, sorting each group without duplicates", () => {
-  const skills = [
-    { id: "z", name: "Zulu" }, { id: "b", name: "beta" },
-    { id: "a", name: "Alpha" }, { id: "g", name: "Gamma" },
-  ];
-  const groups = skillGroups(skills, ["z", "a", "a", "removed"]);
-  assert.deepEqual(groups.used.map((skill) => skill.id), ["a", "z"]);
-  assert.deepEqual(groups.available.map((skill) => skill.id), ["b", "g"]);
-  assert.deepEqual(skillGroups(skills, []).used, []);
-  assert.deepEqual(skillGroups(skills, skills.map((skill) => skill.id)).available, []);
-  assert.deepEqual(skillGroups([], ["a"]), { used: [], available: [] });
-  assert.deepEqual(skills.map((skill) => skill.id), ["z", "b", "a", "g"]);
+test("reads legacy timestamps as one use and upgrades them on the next click", () => {
+  assert.deepEqual(lastSkillUses(100), [100]);
+  assert.equal(recentSkillUseCount(100, 101), 1);
+  assert.deepEqual(recordSkillUse(100, 101), [101, 100]);
+  assert.deepEqual(recordSkillUse(undefined, 101), [101]);
+});
+
+test("retains only the three latest uses without mutating input or deduplicating clicks", () => {
+  const history = [100, 300, 200];
+  assert.deepEqual(recordSkillUse(history, 400), [400, 300, 200]);
+  assert.deepEqual(history, [100, 300, 200]);
+  assert.deepEqual(recordSkillUse([100, 100], 100), [100, 100, 100]);
+  assert.deepEqual(lastSkillUses([null, "bad", Infinity, -1, 200, 100]), [200, 100]);
+  assert.deepEqual(recordSkillUse([500, 300, 200], 400), [400, 300, 200]);
+});
+
+test("uses gray for no weekly uses and progressively lighter greens for one to three", () => {
+  const theme = { text: { muted: "gray" } };
+  assert.equal(skillUsageColor(0, theme), "gray");
+  assert.equal(skillUsageColor(1, theme), "#228B22");
+  assert.equal(skillUsageColor(2, theme), "#4CAF50");
+  assert.equal(skillUsageColor(3, theme), "#86EFAC");
+  assert.equal(skillUsageColor(4, theme), "#86EFAC");
 });
 
 test("sorts skill display names alphabetically, ignoring case", () => {

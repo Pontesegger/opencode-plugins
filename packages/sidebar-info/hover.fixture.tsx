@@ -16,6 +16,9 @@ const muted = RGBA.fromHex("#888888");
 const blue = RGBA.fromHex("#4488ff");
 const purple = RGBA.fromHex("#bb66ff");
 const green = RGBA.fromHex("#44cc88");
+const darkGreen = RGBA.fromHex("#228B22");
+const midGreen = RGBA.fromHex("#4CAF50");
+const lightGreen = RGBA.fromHex("#86EFAC");
 const skills = [
   skill,
   { id: "builtin", name: "Builtin", path: "skill://builtin" },
@@ -29,9 +32,11 @@ let prompt: TextareaRenderable;
 let submits = 0;
 const [sessionID, setSessionID] = createSignal("test");
 const [mounted, setMounted] = createSignal(true);
-let savedUsage = { lastClicked: {
+let savedUsage: { lastClicked: Record<string, number | number[]> } = { lastClicked: {
   global: Date.now() - 24 * 60 * 60 * 1000,
   other: Date.now() - 8 * 24 * 60 * 60 * 1000,
+  builtin: [Date.now() - 1000, Date.now() - 2000],
+  long: [Date.now() - 1000, Date.now() - 2000, Date.now() - 3000],
 } };
 const warnings: string[] = [];
 let failWrites = false;
@@ -82,6 +87,7 @@ const setup = await testRender(() => (
 ), { width: 120, height: 30 });
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const originalNow = Date.now;
 try {
   await setup.renderOnce();
   const lines = setup.captureCharFrame().split("\n");
@@ -89,20 +95,23 @@ try {
   const row = lines.findIndex((line) => line.includes("Alpha"));
   assert.ok(row >= 0, "Skill should be visible before hovering");
   const column = lines[row].indexOf("Alpha");
-  const dividerRow = (frame) => frame.split("\n").findIndex((line) => line.includes("─"));
-  assert.ok(dividerRow(setup.captureCharFrame()) < row, "Unused skills start below the divider");
-  assert.equal(lines[dividerRow(setup.captureCharFrame())].indexOf("─"), column,
-    "Divider is indented to match skill names");
-  assert.ok(lines.findIndex((line) => line.includes("Global")) < dividerRow(lines.join("\n")),
-    "A skill clicked yesterday is preferred on startup");
-  assert.ok(lines.findIndex((line) => line.includes("Other")) > dividerRow(lines.join("\n")),
-    "A skill clicked more than a week ago is not preferred on startup");
+  const assertSingleList = () => {
+    const frame = setup.captureCharFrame();
+    assert.ok(!frame.includes("─"), "There is no divider between skills");
+    const names = ["Alpha", "Builtin", "Global", "Other", "Very long"];
+    const positions = names.map((name) => frame.indexOf(name));
+    assert.ok(positions.every((position, index) => position >= 0 && (!index || position > positions[index - 1])),
+      "All skills stay in one alphabetical list regardless of usage");
+    assert.equal(frame.split("Alpha").length - 1, 1, "Skills are not duplicated");
+  };
+  assertSingleList();
   const findText = (node, text) => node.plainText === text ? node
     : node.getChildren().map((child) => findText(child, text)).find(Boolean);
   const skillRow = findText(setup.renderer.root, "Alpha");
   for (const [name, color] of [["Alpha", blue], ["Builtin", purple], ["Global", muted], ["Other", muted]]) {
     const nameText = findText(setup.renderer.root, name);
-    assert.deepEqual(nameText.fg, muted, `${name} uses the same neutral name color`);
+    const expectedColor = name === "Global" ? darkGreen : name === "Builtin" ? midGreen : muted;
+    assert.deepEqual(nameText.fg, expectedColor, `${name} name reflects its weekly usage, independently of origin`);
     const line = lines.find((line) => line.includes(name));
     const hasDot = name === "Alpha" || name === "Builtin";
     if (hasDot) {
@@ -116,6 +125,7 @@ try {
     assert.deepEqual(dot.fg, color, `${name} dot uses its hover source color`);
   }
   const longName = findText(setup.renderer.root, "Very long skill name that wraps");
+  assert.deepEqual(longName.fg, lightGreen, "Three stored uses show light green on startup");
   const longSuffix = longName.parent.getChildren()[1];
   assert.ok(longName.height > 1, "Long skill names wrap within their column");
   assert.ok(longName.x + longName.width < longSuffix.x, "Wrapped names leave a gap before the source");
@@ -167,60 +177,75 @@ try {
   assert.equal(prompt.plainText, "Existing text @alpha ", "Clicking the suffix inserts ID, at sign and one trailing space without replacing existing input");
   assert.equal(submits, 0, "Click must not submit the prompt");
   assert.equal(setup.renderer.currentFocusedEditor, prompt, "Prompt keeps keyboard focus");
-  const firstClickedAt = savedUsage.lastClicked.alpha;
+  const firstClickedAt = savedUsage.lastClicked.alpha[0];
   assert.ok(Number.isFinite(firstClickedAt) && Date.now() - firstClickedAt < 1000,
     "Click persists a last-click timestamp in milliseconds");
   await setup.renderOnce();
-  const usedFrame = setup.captureCharFrame();
-  const usedRow = usedFrame.split("\n").findIndex((line) => line.includes("Alpha"));
-  assert.ok(usedRow < dividerRow(usedFrame), "Clicked skill moves above the divider");
-  assert.ok(usedFrame.split("\n").findIndex((line) => line.includes("Builtin")) > dividerRow(usedFrame),
-    "Unclicked skills stay below the divider");
-  assert.equal(usedFrame.split("Alpha").length - 1, 1, "Moved skill is not duplicated");
-  await setup.mockMouse.click(column + 2, usedRow, 2);
+  assertSingleList();
+  await setup.mockMouse.moveTo(0, 0);
+  await setup.renderOnce();
+  assert.deepEqual(skillRow.fg, darkGreen, "First click changes the name to dark green");
+  const firstHistory = structuredClone(savedUsage.lastClicked.alpha);
+  await setup.mockMouse.click(column + 2, row, 2);
   await wait(50);
   assert.equal(prompt.plainText, "Existing text @alpha ", "Right-click must not insert anything");
+  assert.deepEqual(savedUsage.lastClicked.alpha, firstHistory, "Right-click does not record usage");
 
-  const builtinRow = usedFrame.split("\n").findIndex((line) => line.includes("Builtin"));
+  const builtinRow = lines.findIndex((line) => line.includes("Builtin"));
+  const builtinHistory = structuredClone(savedUsage.lastClicked.builtin);
   await setup.mockMouse.click(column + 2, builtinRow, 2);
   await wait(50);
   await setup.renderOnce();
-  assert.equal(setup.captureCharFrame(), usedFrame, "Right-click does not promote an unused skill");
+  assert.deepEqual(savedUsage.lastClicked.builtin, builtinHistory, "Right-click does not change existing usage");
   await setup.mockMouse.click(column + 2, builtinRow);
   await wait(50);
   await setup.renderOnce();
-  const bothUsed = setup.captureCharFrame().split("\n");
-  const alphaRow = bothUsed.findIndex((line) => line.includes("Alpha"));
-  const promotedBuiltinRow = bothUsed.findIndex((line) => line.includes("Builtin"));
-  assert.ok(alphaRow < promotedBuiltinRow && promotedBuiltinRow < dividerRow(bothUsed.join("\n")),
-    "Used skills stay alphabetical above the divider");
-  await setup.mockMouse.click(column + 2, alphaRow);
+  await setup.mockMouse.moveTo(0, 0);
+  await setup.renderOnce();
+  assert.deepEqual(findText(setup.renderer.root, "Builtin").fg, lightGreen, "Third use changes medium green to light green");
+  assertSingleList();
+  await setup.mockMouse.click(column + 2, row);
   await wait(50);
   await setup.renderOnce();
-  assert.equal(setup.captureCharFrame().split("Alpha").length - 1, 1, "Repeated clicks do not duplicate used skills");
-  assert.ok(savedUsage.lastClicked.alpha > firstClickedAt, "Clicking again refreshes the saved timestamp");
+  await setup.mockMouse.moveTo(0, 0);
+  await setup.renderOnce();
+  assert.deepEqual(skillRow.fg, midGreen, "Second click changes the name to medium green");
+  assert.ok(savedUsage.lastClicked.alpha[0] > firstClickedAt, "Clicking again appends a fresh timestamp");
+  for (let count = 3; count <= 4; count++) {
+    await setup.mockMouse.click(column + 2, row);
+    await wait(50);
+    await setup.mockMouse.moveTo(0, 0);
+    await setup.renderOnce();
+    assert.deepEqual(skillRow.fg, lightGreen, "Three or more clicks show light green");
+    assert.equal(savedUsage.lastClicked.alpha.length, 3, "Only the three most recent timestamps are retained");
+    assertSingleList();
+  }
+  assert.ok(!savedUsage.lastClicked.alpha.includes(firstClickedAt), "A fourth use evicts the oldest timestamp");
+
+  const globalRow = lines.findIndex((line) => line.includes("Global"));
+  const legacyGlobal = savedUsage.lastClicked.global;
+  await setup.mockMouse.click(column + 2, globalRow);
+  await wait(50);
+  await setup.mockMouse.moveTo(0, 0);
+  await setup.renderOnce();
+  assert.deepEqual(findText(setup.renderer.root, "Global").fg, midGreen, "Clicking a legacy single-use skill adds its second use");
+  assert.equal(savedUsage.lastClicked.global[1], legacyGlobal, "Legacy timestamp survives the history upgrade");
 
   setSessionID("other-session");
   await setup.renderOnce();
-  const otherFrame = setup.captureCharFrame();
-  assert.ok(otherFrame.split("\n").findIndex((line) => line.includes("Alpha")) < dividerRow(otherFrame),
-    "Preferred skills are shared across sessions");
+  assert.deepEqual(findText(setup.renderer.root, "Alpha").fg, lightGreen, "Usage colors are shared across sessions");
   setSessionID("test");
   await setup.renderOnce();
-  const restoredFrame = setup.captureCharFrame();
-  assert.ok(restoredFrame.split("\n").findIndex((line) => line.includes("Builtin")) < dividerRow(restoredFrame),
-    "Returning to a session keeps shared preferred skills");
+  assert.deepEqual(findText(setup.renderer.root, "Builtin").fg, lightGreen, "Returning to a session keeps shared usage colors");
 
   setMounted(false);
   await setup.renderOnce();
   setMounted(true);
   await setup.renderOnce();
   const startupFrame = setup.captureCharFrame();
-  assert.ok(startupFrame.split("\n").findIndex((line) => line.includes("Alpha")) < dividerRow(startupFrame),
-    "A fresh plugin instance restores recently clicked skills from durable storage");
-  assert.ok(startupFrame.split("\n").findIndex((line) => line.includes("Other")) > dividerRow(startupFrame),
-    "Expired history stays below the divider after reloading");
-  assert.ok(savedUsage.lastClicked.other < Date.now() - 7 * 24 * 60 * 60 * 1000,
+  assert.deepEqual(findText(setup.renderer.root, "Alpha").fg, lightGreen, "A fresh plugin instance restores three uses from durable storage");
+  assert.deepEqual(findText(setup.renderer.root, "Other").fg, muted, "Expired usage stays gray after reloading");
+  assert.ok(Number(savedUsage.lastClicked.other) < Date.now() - 7 * 24 * 60 * 60 * 1000,
     "Old timestamps are retained rather than deleting history");
 
   failWrites = true;
@@ -232,8 +257,25 @@ try {
   assert.ok(prompt.plainText.endsWith("@other "), "A storage failure does not prevent prompt insertion");
   assert.deepEqual(warnings, ["Skill inserted, but its usage could not be saved."],
     "Storage failure reports an accurate warning");
-  assert.equal(submits, 0, "Promoting and reusing skills never submits the prompt");
-  console.log("PASS: hover and click-to-insert; shared durable usage and refreshed timestamps; startup week filtering; alphabetical groups; right-click ignored; storage failure warning.");
+  await setup.mockMouse.moveTo(0, 0);
+  await setup.renderOnce();
+  assert.deepEqual(findText(setup.renderer.root, "Other").fg, muted, "A failed save does not invent a recorded use");
+  assert.equal(submits, 0, "Recording usage never submits the prompt");
+
+  const historyBeforeAging = structuredClone(savedUsage);
+  const future = originalNow() + 7 * 24 * 60 * 60 * 1000;
+  Date.now = () => future;
+  setMounted(false);
+  await setup.renderOnce();
+  setMounted(true);
+  await setup.renderOnce();
+  for (const name of ["Alpha", "Builtin", "Global", "Other", "Very long skill name that wraps"]) {
+    assert.deepEqual(findText(setup.renderer.root, name).fg, muted, "All usage expires to gray after a week");
+  }
+  assert.deepEqual(savedUsage, historyBeforeAging, "Aging preserves the stored last three uses");
+  assertSingleList();
+  console.log("PASS: single alphabetical list; weekly usage colors; last-three history; legacy migration; shared durable usage; origin dots; hover and click-to-insert; right-click ignored; storage failure warning; weekly expiry.");
 } finally {
+  Date.now = originalNow;
   setup.renderer.destroy();
 }
