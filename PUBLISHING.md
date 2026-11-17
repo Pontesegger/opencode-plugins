@@ -4,10 +4,10 @@
 
 - Public source repository: https://github.com/Pontesegger/opencode-plugins.
 - Review all tracked files for secrets, personal paths, and third-party material.
-- MIT licensing is configured in the root and both package manifests. Keep the
+- MIT licensing is configured in the root and all package manifests. Keep the
   root and package `LICENSE` files consistent and included in each npm package;
   the copyright notice credits "Christian Pontesegger".
-- Keep `repository`, `homepage`, and `bugs` metadata in both manifests current;
+- Keep `repository`, `homepage`, and `bugs` metadata in all manifests current;
   each workspace declares its `repository.directory`.
 - Review compatibility and document any runtime limitations. SDK 2.2.7 is pinned;
   do not replace it with `latest` without testing newer API contracts.
@@ -40,13 +40,15 @@ clone this GitHub repository and load local directories without npm publication.
 3. Keep the root workspace private. Remove `private: true` from **only the
    packages approved for release**, choose initial versions, and complete license
    and repository metadata. Refresh the lockfile with `npm install --ignore-scripts`.
-4. Run `npm run check` and `npm run test:hover`. Review each actual tarball:
+4. Run `npm run check`, `npm run test:hover`, and `npm run test:favorites`. Review each actual tarball:
 
    ```sh
    npm pack --workspace=opencode-context-inspector
-   npm pack --workspace=opencode-sidebar-info
+    npm pack --workspace=opencode-sidebar-info
+    npm pack --workspace=opencode-favorites
    tar -tzf opencode-context-inspector-1.0.0.tgz
-   tar -tzf opencode-sidebar-info-1.0.0.tgz
+    tar -tzf opencode-sidebar-info-1.0.0.tgz
+    tar -tzf opencode-favorites-1.0.0.tgz
    ```
 
 5. Install those `.tgz` files into a separate temporary npm project and load the
@@ -59,12 +61,13 @@ clone this GitHub repository and load local directories without npm publication.
 
    ```sh
    npm publish ./opencode-context-inspector-1.0.0.tgz --access public
-   npm publish ./opencode-sidebar-info-1.0.0.tgz --access public
+    npm publish ./opencode-sidebar-info-1.0.0.tgz --access public
+    npm publish ./opencode-favorites-1.0.0.tgz --access public
    ```
 
 7. Tag the release, publish GitHub release notes, and replace local-path
    installation examples with the actual npm names and versions. Context
-   Inspector still belongs in `opencode.json(c)` and Sidebar Info in `cli.json`.
+    Inspector still belongs in `opencode.json(c)` and Sidebar Info/Favorites in `cli.json`.
 
 Never add publication credentials to GitHub Actions until a separate publishing
 workflow and its permissions have been reviewed. Prefer npm trusted publishing

@@ -30,6 +30,9 @@ const background = RGBA.fromHex("#222222");
 const location = { directory: "/home/test/project" };
 let prompt: TextareaRenderable;
 let submits = 0;
+const selectedSkills: string[] = [];
+const skillMarks = new Map<number, string>();
+let autocompleteAvailable = true;
 const [sessionID, setSessionID] = createSignal("test");
 const [mounted, setMounted] = createSignal(true);
 let savedUsage: { lastClicked: Record<string, number | number[]> } = { lastClicked: {
@@ -61,12 +64,27 @@ function Skills() {
     },
     data: {
       session: { get: () => ({ location }) },
-      location: { skill: { list: () => skills, sync: async () => {} } },
+      location: { skill: { list: () => skills, sync: async () => {} }, reference: { list: () => [] } },
     },
-    keymap: { dispatch: (command) => {
-      assert.equal(command, "pane.focus.left");
-      prompt.focus();
-    } },
+    keymap: {
+      commands: () => autocompleteAvailable ? [{ id: "prompt.autocomplete.complete", run() {} }] : [],
+      dispatch: (command) => {
+        if (command === "pane.focus.left") { prompt.focus(); return; }
+        assert.equal(command, "prompt.autocomplete.complete", "Skill selection must never dispatch prompt submission");
+        const query = prompt.getTextRange(0, prompt.cursorOffset).match(/@([^\s@]+)$/)?.[0];
+        assert.ok(query, "Complete the skill before inserting a trailing space");
+        const id = query.slice(1);
+        assert.ok(skills.some((skill) => skill.id === id));
+        // The native host does not attach an already-selected skill twice.
+        if (prompt.extmarks.getAll().some((mark) => skillMarks.get(mark.id) === id)) return;
+        const start = prompt.cursorOffset - query.length;
+        const end = prompt.cursorOffset;
+        prompt.insertText(" ");
+        const markID = prompt.extmarks.create({ start, end, virtual: true, typeId: 123 });
+        skillMarks.set(markID, id);
+        selectedSkills.push(id);
+      },
+    },
     ui: {
       slot: (definition) => { slot = definition; return () => {}; },
       toast: { show: ({ message }) => { warnings.push(message); } },
@@ -175,6 +193,11 @@ try {
   await setup.mockMouse.click(suffixColumn, row);
   await wait(50);
   assert.equal(prompt.plainText, "Existing text @alpha ", "Clicking the suffix inserts ID, at sign and one trailing space without replacing existing input");
+  assert.deepEqual(selectedSkills, ["alpha"], "Click must select the native skill completion, not just insert text");
+  const alphaMark = prompt.extmarks.getAtOffset(14).find((mark) => skillMarks.get(mark.id) === "alpha");
+  assert.ok(alphaMark, "The native completion owns a structured skill mention on the draft");
+  prompt.insertText("Apply this workflow");
+  assert.equal(prompt.plainText, "Existing text @alpha Apply this workflow", "Additional instructions can be typed after selecting a skill");
   assert.equal(submits, 0, "Click must not submit the prompt");
   assert.equal(setup.renderer.currentFocusedEditor, prompt, "Prompt keeps keyboard focus");
   const firstClickedAt = savedUsage.lastClicked.alpha[0];
@@ -188,7 +211,7 @@ try {
   const firstHistory = structuredClone(savedUsage.lastClicked.alpha);
   await setup.mockMouse.click(column + 2, row, 2);
   await wait(50);
-  assert.equal(prompt.plainText, "Existing text @alpha ", "Right-click must not insert anything");
+  assert.equal(prompt.plainText, "Existing text @alpha Apply this workflow", "Right-click must not insert anything");
   assert.deepEqual(savedUsage.lastClicked.alpha, firstHistory, "Right-click does not record usage");
 
   const builtinRow = lines.findIndex((line) => line.includes("Builtin"));
@@ -203,7 +226,9 @@ try {
   await setup.mockMouse.moveTo(0, 0);
   await setup.renderOnce();
   assert.deepEqual(findText(setup.renderer.root, "Builtin").fg, lightGreen, "Third use changes medium green to light green");
+  assert.ok(prompt.extmarks.get(alphaMark.id), "Selecting another skill preserves existing draft attachments");
   assertSingleList();
+  prompt.setText("");
   await setup.mockMouse.click(column + 2, row);
   await wait(50);
   await setup.renderOnce();
@@ -212,6 +237,7 @@ try {
   assert.deepEqual(skillRow.fg, midGreen, "Second click changes the name to medium green");
   assert.ok(savedUsage.lastClicked.alpha[0] > firstClickedAt, "Clicking again appends a fresh timestamp");
   for (let count = 3; count <= 4; count++) {
+    prompt.setText("");
     await setup.mockMouse.click(column + 2, row);
     await wait(50);
     await setup.mockMouse.moveTo(0, 0);
@@ -262,6 +288,26 @@ try {
   assert.deepEqual(findText(setup.renderer.root, "Other").fg, muted, "A failed save does not invent a recorded use");
   assert.equal(submits, 0, "Recording usage never submits the prompt");
 
+  failWrites = false;
+  const beforeDuplicate = prompt.plainText;
+  const beforeFailedSelections = structuredClone(savedUsage);
+  await setup.mockMouse.click(column + 2, expiredRow);
+  await wait(50);
+  assert.equal(prompt.plainText, beforeDuplicate, "Duplicate selection rolls back its raw query");
+  assert.deepEqual(savedUsage, beforeFailedSelections, "Duplicate selection does not record a use");
+  assert.match(warnings.at(-1), /already selected/);
+
+  autocompleteAvailable = false;
+  await setup.mockMouse.click(column + 2, row);
+  await wait(50);
+  assert.equal(prompt.plainText, beforeDuplicate, "Unavailable native completion leaves no raw mention behind");
+  assert.deepEqual(savedUsage, beforeFailedSelections, "Failed completion does not record a use");
+  assert.match(warnings.at(-1), /autocomplete is unavailable/);
+  assert.equal(submits, 0, "Successful and failed skill selections never submit");
+  autocompleteAvailable = true;
+  await setup.mockMouse.moveTo(0, 0);
+  await setup.renderOnce();
+
   const historyBeforeAging = structuredClone(savedUsage);
   const future = originalNow() + 7 * 24 * 60 * 60 * 1000;
   Date.now = () => future;
@@ -274,7 +320,7 @@ try {
   }
   assert.deepEqual(savedUsage, historyBeforeAging, "Aging preserves the stored last three uses");
   assertSingleList();
-  console.log("PASS: single alphabetical list; weekly usage colors; last-three history; legacy migration; shared durable usage; origin dots; hover and click-to-insert; right-click ignored; storage failure warning; weekly expiry.");
+  console.log("PASS: alphabetical list; weekly usage; durable history; hover cards; native skill completion; editable draft; attachment preservation; no auto-submit; right-click ignored; duplicate/unavailable completion rollback; storage failure warning; weekly expiry.");
 } finally {
   Date.now = originalNow;
   setup.renderer.destroy();

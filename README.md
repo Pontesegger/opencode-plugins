@@ -1,12 +1,13 @@
 # OpenCode plugins
 
-Two independently loadable plugins for **OpenCode V2** in one npm-workspaces
+Three independently loadable plugins for **OpenCode V2** in one npm-workspaces
 repository:
 
 | Package | Features | Configuration |
 | --- | --- | --- |
 | [Context Inspector](packages/context-inspector/README.md) | Context-usage row, component estimates, and read-only captured-context inspection | `opencode.json(c)` |
 | [Sidebar Info](packages/sidebar-info/README.md) | Alphabetical skill list with weekly usage colors, origin dots, hover descriptions, and click-to-insert skill commands | Global `cli.json` |
+| [Favorites](packages/favorites/README.md) | One-click `/clear` and `/compact` commands under a Favorites sidebar heading | Global `cli.json` |
 
 ## Status and compatibility
 
@@ -17,7 +18,7 @@ repository:
   No JavaScript build or combined bundle is required for these plugins.
 - Package names are provisional and **not published or checked for availability**.
 - Licensed under the [MIT License](LICENSE), with a copy included in each package.
-  Both packages remain `private: true` to prevent accidental npm publication;
+  All packages remain `private: true` to prevent accidental npm publication;
   the source repository is public on GitHub.
 - Existing plugin/RPC IDs retain their `local.*` names for compatibility. Do not
   load these copies alongside the original local plugins: that duplicates IDs,
@@ -44,14 +45,15 @@ the rest of your configuration.** Global config normally lives in
 `~/.config/opencode/`, or `$XDG_CONFIG_HOME/opencode/` when set.
 
 Context Inspector's server and TUI load together from `opencode.json(c)`. Do not
-also add it to `cli.json`. Sidebar Info is TUI-only and belongs in `cli.json`.
+also add it to `cli.json`. Sidebar Info and Favorites are TUI-only and belong in `cli.json`.
 If replacing the original local plugins, replace their existing entries rather
 than appending more; originals in plugin discovery directories must also be
 moved outside discovery before using the copies.
 
 Config changes reload automatically; `/reload` forces a refresh. Context
 inspection becomes available after the next model request; older requests are
-not reconstructed. Sidebar Info needs a visible session sidebar.
+not reconstructed. Sidebar Info and Favorites need a visible session sidebar.
+Favorites replaces any unfinished prompt and attachments before submitting the selected command.
 
 ## Development and verification
 
@@ -60,7 +62,7 @@ npm ci --ignore-scripts
 npm run check
 ```
 
-`check` runs both packages' Node regression tests, then creates real npm
+`check` runs all packages' Node regression tests, then creates real npm
 tarballs in a temporary directory. It verifies package exports and relative
 imports, rejects unexpected shipped files and machine-specific paths, and reruns
 the helper tests against extracted package contents. Tests and hover fixtures are
@@ -72,15 +74,19 @@ test (verified with Bun 1.4.4):
 
 ```sh
 npm run test:hover
+npm run test:favorites
 ```
 
 This simulates mouse movement and clicks, checks hover-card visibility and
 dismissal, and verifies that clicking inserts a skill without submitting a prompt.
-GitHub Actions runs both the Node/package checks and the Bun renderer test.
+The Favorites renderer test verifies one-click submission, draft replacement,
+and ignored right-clicks/drags with mocked host dispatch. GitHub Actions runs
+the Node/package checks and both Bun renderer tests.
 
-Manually smoke-test both plugins in OpenCode 2.2.7 before a release: inspect a
+Manually smoke-test all plugins in OpenCode 2.2.7 before a release: inspect a
 fresh context capture, change categories, scroll/jump headings, resize, close the
-inspector, hover/click a skill, and reload without duplicate UI or listeners.
+inspector, hover/click a skill, click each favorite in a disposable session,
+and reload without duplicate UI or listeners.
 
 ## Privacy
 

@@ -44,10 +44,24 @@ description. The card disappears shortly after the pointer leaves the skill and
 card, on a skill click/scroll, terminal blur, resize, or session/location changes.
 Move onto the card to scroll long descriptions. Mouse movement reporting must be
 enabled in the terminal.
-Left-click a skill to insert `@skill-id ` at the prompt cursor, preserving existing
-input and returning focus to the prompt. The inserted text has exactly one
-trailing space, no newline, and is never automatically submitted. The invocable
-skill ID is used even when the display name differs. Right-click does not insert.
+Left-click a skill to select its **native OpenCode autocomplete entry** at the
+prompt cursor, preserving existing input and attachments and returning focus to
+the prompt. This attaches the skill to the draft using the host's internal skill
+mechanism, rather than merely inserting text that looks like a mention. It uses
+`prompt.autocomplete.complete` (the Tab action), never Return, prompt submission,
+or queueing. Add any additional instructions after the mention, then submit when
+ready; selecting a skill does not execute it or load it into the conversation yet.
+The host supplies a trailing space unless one is already present. A separating
+space is inserted before the mention when needed. The invocable skill ID is used
+even when the display name differs. Right-clicks and drags do not select skills.
+
+If native completion is unavailable or the skill is already selected, a warning
+is shown without recording a use; the plugin removes its uncompleted insertion
+without resetting the draft or existing attachments. Concurrent user edits are
+left alone. A named reference shadowing the same ID, an active text selection,
+shell mode, or an ID containing whitespace, `@`, or `#` also produces a warning
+instead of attaching the wrong reference or leaving a plain-text fallback. For
+these cases, use OpenCode's built-in `/skills` selector.
 Sources are classified from registry paths: Global for standard home skill
 directories, Repo for project-local paths (including ancestor project skill
 directories), Built-in for `skill://` paths, and Other for unclassified sources.
@@ -91,3 +105,7 @@ For the optional rendered hover regression, install devDependencies and run
 checks that the card is on-screen, stays open over its contents, and dismisses on
 leave. The portal wrapper is absolutely positioned and zero-sized so it neither
 flows below the application nor intercepts the skill row's mouse events.
+The same test checks native-completion dispatch, mention marks, additional typing,
+attachment preservation, no auto-submission, and failed/duplicate selection
+rollback against mocked host completion. Verify a skill click in the live TUI
+after `/reload` to check the installed host integration.

@@ -33,8 +33,67 @@ export function skillUsageColor(count, theme) {
 
 /** Use the invocable ID, not a potentially different frontmatter display name. */
 export function skillPromptText(skill) {
-  if (!skill.id || /[\r\n]/.test(skill.id)) throw new Error("Skill ID must be a non-empty single line");
+  if (typeof skill.id !== "string" || !skill.id || /[\s@#]/.test(skill.id)) {
+    throw new Error("Skill ID cannot be completed as a mention");
+  }
   return `@${skill.id} `;
+}
+
+/** Let native completion own both the visible mention and the draft's skill part. */
+export async function insertSkillMention(context, skill, location) {
+  const mention = skillPromptText(skill).trimEnd();
+  // Named references take priority over skills in OpenCode's @ completion.
+  const references = context.data.location.reference.list(location) ?? [];
+  if (references.some((reference) => !reference.hidden && reference.name === skill.id.split("/")[0])) {
+    throw new Error("A named reference shadows this skill in autocomplete");
+  }
+  await context.keymap.dispatch("pane.focus.left");
+  const editor = context.renderer.currentFocusedEditor;
+  if (!editor || editor.isDestroyed || editor.traits?.mode === "shell") {
+    throw new Error("Prompt editor is unavailable");
+  }
+  if (editor.hasSelection()) throw new Error("Clear the text selection before inserting a skill");
+  // Reset an existing completion without clearing the draft or its attachments.
+  if (context.keymap.commands().some((command) => command.id === "prompt.autocomplete.hide")) {
+    await context.keymap.dispatch("prompt.autocomplete.hide");
+  }
+  const offset = editor.cursorOffset;
+  const start = { ...editor.logicalCursor };
+  const before = editor.getTextRange(0, offset);
+  const after = editor.plainText.slice(before.length);
+  const prefix = before && !/\s$/.test(before) ? " " : "";
+  const previousMarks = new Set(editor.extmarks.getAll().map((mark) => mark.id));
+  const query = prefix + mention;
+  editor.insertText(query);
+  const queryText = editor.plainText;
+  const queryEnd = editor.cursorOffset;
+  try {
+    // Give reactive input/completion layers a chance to observe the new query.
+    await Promise.resolve();
+    if (editor.isDestroyed || context.renderer.currentFocusedEditor !== editor
+      || editor.plainText !== queryText || editor.cursorOffset !== queryEnd) {
+      throw new Error("Prompt changed while selecting the skill");
+    }
+    const complete = context.keymap.commands().find((command) => command.id === "prompt.autocomplete.complete");
+    if (!complete || complete.enabled === false || (typeof complete.enabled === "function" && !complete.enabled())) {
+      throw new Error("Skill autocomplete is unavailable");
+    }
+    await context.keymap.dispatch(complete.id);
+    const attached = editor.extmarks.getAtOffset(offset + prefix.length).some((mark) =>
+      !previousMarks.has(mark.id) && mark.virtual && editor.getTextRange(mark.start, mark.end) === mention);
+    if (!attached) throw new Error("Skill is already selected or native completion could not attach it");
+    editor.focus();
+  } catch (error) {
+    // Remove only our insertion, not the whole draft (which would lose parts).
+    // Leave concurrent user edits alone.
+    if (!editor.isDestroyed && editor.getTextRange(0, offset) === before
+      && editor.plainText.slice(editor.getTextRange(0, editor.cursorOffset).length) === after
+      && [query, query + " "].includes(editor.getTextRange(offset, editor.cursorOffset))) {
+      const end = editor.logicalCursor;
+      editor.deleteRange(start.row, start.col, end.row, end.col);
+    }
+    throw error;
+  }
 }
 
 /** Classify registry paths without reading skill contents or the filesystem. */

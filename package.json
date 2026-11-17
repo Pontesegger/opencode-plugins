@@ -9,6 +9,7 @@
   "scripts": {
     "test": "npm run test --workspaces",
     "test:hover": "npm run test:hover --workspace=opencode-sidebar-info",
+    "test:favorites": "npm run test:render --workspace=opencode-favorites",
     "check:packages": "node scripts/check-packages.mjs",
     "check": "npm test && npm run check:packages"
   }

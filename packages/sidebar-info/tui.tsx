@@ -3,7 +3,7 @@ import { Portal } from "@opentui/solid";
 import type { MouseEvent } from "@opentui/core";
 import { homedir } from "node:os";
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
-import { recentSkillUseCount, recordSkillUse, skillPromptText, skillScope, skillScopeColor, skillUsageColor, sortedSkills, tooltipPlacement } from "./skills.mjs";
+import { insertSkillMention, recentSkillUseCount, recordSkillUse, skillScope, skillScopeColor, skillUsageColor, sortedSkills, tooltipPlacement } from "./skills.mjs";
 
 export default Plugin.define({
   id: "local.sidebar-info",
@@ -38,6 +38,7 @@ export default Plugin.define({
         let hoverTimer: ReturnType<typeof setTimeout> | undefined;
         let hideTimer: ReturnType<typeof setTimeout> | undefined;
         let pressedID: string | undefined;
+        let inserting = false;
         const keepOpen = () => {
           clearTimeout(hideTimer);
           hideTimer = undefined;
@@ -67,21 +68,19 @@ export default Plugin.define({
           hoverTimer = setTimeout(() => { setHoveredID(id); }, 250);
         };
         const insertSkill = async (skill, event: MouseEvent) => {
-          if (event.button !== 0 || event.isDragging || pressedID !== skill.id) return;
+          if (event.button !== 0 || event.isDragging || pressedID !== skill.id || inserting) return;
           pressedID = undefined;
           event.preventDefault();
           event.stopPropagation();
           dismiss();
+          inserting = true;
           try {
-            // Focus the prompt through the host command, not a render-tree lookup.
-            await context.keymap.dispatch("pane.focus.left");
-            const editor = context.renderer.currentFocusedEditor;
-            if (!editor || editor.isDestroyed) throw new Error("Prompt editor is unavailable");
-            editor.insertText(skillPromptText(skill));
-            editor.focus();
-          } catch {
-            context.ui.toast.show({ message: "Unable to insert the skill. Focus the prompt and try again.", variant: "warning" });
+            await insertSkillMention(context, skill, location());
+          } catch (error) {
+            context.ui.toast.show({ message: error instanceof Error ? error.message : "Unable to select the skill.", variant: "warning" });
             return;
+          } finally {
+            inserting = false;
           }
           const clickedAt = Date.now();
           setNow(clickedAt);

@@ -12,7 +12,7 @@ const run = (command, args, cwd) => execFileSync(command, args, {
 });
 
 try {
-  for (const directory of ["context-inspector", "sidebar-info"]) {
+  for (const directory of ["context-inspector", "sidebar-info", "favorites"]) {
     const source = join(root, "packages", directory);
     const manifest = JSON.parse(readFileSync(join(source, "package.json"), "utf8"));
     const [packed] = JSON.parse(run("npm", ["pack", "--json", "--ignore-scripts", "--pack-destination", temporary], source));
@@ -50,7 +50,7 @@ try {
 
     // Run helper regressions against extracted runtime files, not the originals.
     // The Bun renderer test is separate and is not included in the tarball.
-    const tests = readdirSync(source).filter((path) => path.endsWith(".test.mjs") && path !== "hover.test.mjs");
+    const tests = readdirSync(source).filter((path) => path.endsWith(".test.mjs") && !["hover.test.mjs", "render.test.mjs"].includes(path));
     for (const test of tests) copyFileSync(join(source, test), join(extracted, test));
     console.log(run(process.execPath, ["--test", ...tests], extracted));
     console.log(`PASS: ${manifest.name} tarball (${paths.size} files), exports, relative imports, and packaged helper tests`);

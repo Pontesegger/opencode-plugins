@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { lastSkillUses, recentSkillUseCount, recordSkillUse, skillPromptText, skillScope, skillScopeColor, skillUsageColor, sortedSkills, tooltipPlacement } from "./skills.mjs";
+import { insertSkillMention, lastSkillUses, recentSkillUseCount, recordSkillUse, skillPromptText, skillScope, skillScopeColor, skillUsageColor, sortedSkills, tooltipPlacement } from "./skills.mjs";
 
 test("counts only the last three valid uses within the previous seven days", () => {
   const now = 1_800_000_000_000;
@@ -66,6 +66,122 @@ test("prompt insertion uses the skill ID with an at sign and exactly one trailin
   assert.equal(skillPromptText({ id: "alpha", name: "Alpha Display Name" }), "@alpha ");
   assert.throws(() => skillPromptText({ id: "bad\nname" }));
   assert.throws(() => skillPromptText({ id: "bad\rname" }));
+  for (const id of ["", "two words", "name\t", "@alpha", "alpha#1", undefined, 1]) {
+    assert.throws(() => skillPromptText({ id }));
+  }
+});
+
+// Host contract double: only native completion may add a skill part and extmark.
+function promptContext({ text = "Existing text ", cursor = text.length, complete = true, attach = true, references = [] } = {}) {
+  const calls = [];
+  const marks = [];
+  const parts = [];
+  const editor = {
+    plainText: text, cursorOffset: cursor,
+    get logicalCursor() { return { row: 0, col: this.cursorOffset }; },
+    hasSelection: () => false,
+    getTextRange(start, end) { return this.plainText.slice(start, end); },
+    insertText(value) {
+      this.plainText = this.plainText.slice(0, this.cursorOffset) + value + this.plainText.slice(this.cursorOffset);
+      this.cursorOffset += value.length;
+    },
+    deleteRange(row, start, endRow, end) {
+      assert.equal(row, 0); assert.equal(endRow, 0);
+      this.plainText = this.plainText.slice(0, start) + this.plainText.slice(end);
+      this.cursorOffset = start;
+    },
+    extmarks: { getAll: () => marks, getAtOffset: (offset) => marks.filter((mark) => mark.start <= offset && offset < mark.end) },
+    focus() { calls.push("focus"); },
+  };
+  const context = {
+    renderer: { currentFocusedEditor: undefined },
+    data: { location: { reference: { list: () => references } } },
+    keymap: {
+      commands: () => complete ? [{ id: "prompt.autocomplete.complete" }] : [],
+      dispatch(id) {
+        calls.push(id);
+        if (id === "pane.focus.left") { context.renderer.currentFocusedEditor = editor; return; }
+        assert.equal(id, "prompt.autocomplete.complete", "Never submit, queue, or clear the prompt");
+        const mention = editor.getTextRange(0, editor.cursorOffset).match(/@([^\s@]+)$/)?.[0];
+        assert.equal(mention, "@alpha", "Complete the ID, not its display name, before adding whitespace");
+        if (!attach) return;
+        const start = editor.cursorOffset - mention.length;
+        const end = editor.cursorOffset;
+        if (editor.plainText[editor.cursorOffset] !== " ") editor.insertText(" ");
+        marks.push({ id: marks.length + 1, start, end, virtual: true });
+        parts.push({ id: "alpha", mention: { start, end, text: mention } });
+      },
+    },
+  };
+  return { context, editor, calls, parts, marks };
+}
+
+test("native skill completion attaches the ID and leaves the draft editable without submitting", async () => {
+  const { context, editor, calls, parts } = promptContext();
+  await insertSkillMention(context, { id: "alpha", name: "Different display name" });
+  assert.equal(editor.plainText, "Existing text @alpha ");
+  assert.deepEqual(parts, [{ id: "alpha", mention: { start: 14, end: 20, text: "@alpha" } }]);
+  assert.deepEqual(calls, ["pane.focus.left", "prompt.autocomplete.complete", "focus"]);
+  editor.insertText("Review this change");
+  assert.equal(editor.plainText, "Existing text @alpha Review this change");
+});
+
+test("insertion at the cursor separates the mention and preserves following text", async () => {
+  for (const [text, cursor, expected] of [
+    ["Before after", 6, "Before @alpha after"],
+    ["Beforeafter", 6, "Before @alpha after"],
+    ["", 0, "@alpha "],
+  ]) {
+    const { context, editor } = promptContext({ text, cursor });
+    await insertSkillMention(context, { id: "alpha" });
+    assert.equal(editor.plainText, expected);
+  }
+});
+
+test("unavailable or ineffective completion rolls back only its insertion", async () => {
+  for (const options of [{ complete: false }, { attach: false }]) {
+    const { context, editor, parts, marks } = promptContext({ text: "Beforeafter", cursor: 6, ...options });
+    const existing = { id: 100, start: 0, end: 6, virtual: true };
+    marks.push(existing);
+    await assert.rejects(insertSkillMention(context, { id: "alpha" }), /autocomplete is unavailable|could not attach/);
+    assert.equal(editor.plainText, "Beforeafter");
+    assert.equal(editor.cursorOffset, 6);
+    assert.deepEqual(parts, []);
+    assert.deepEqual(marks, [existing], "Existing attachment marks are not reset");
+  }
+});
+
+test("named-reference collisions never attach the wrong kind of reference", async () => {
+  const { context, calls, editor } = promptContext({ references: [{ name: "alpha" }] });
+  await assert.rejects(insertSkillMention(context, { id: "alpha" }), /shadows/);
+  assert.deepEqual(calls, []);
+  assert.equal(editor.plainText, "Existing text ");
+  const hidden = promptContext({ references: [{ name: "alpha", hidden: true }] });
+  await insertSkillMention(hidden.context, { id: "alpha" });
+  assert.equal(hidden.parts.length, 1);
+});
+
+test("an unavailable editor, shell mode, or active selection never changes the draft", async () => {
+  for (const change of [
+    (editor) => { editor.isDestroyed = true; },
+    (editor) => { editor.traits = { mode: "shell" }; },
+    (editor) => { editor.hasSelection = () => true; },
+  ]) {
+    const { context, editor, calls } = promptContext();
+    change(editor);
+    await assert.rejects(insertSkillMention(context, { id: "alpha" }), /unavailable|text selection/);
+    assert.deepEqual(calls, ["pane.focus.left"]);
+    assert.equal(editor.plainText, "Existing text ");
+  }
+});
+
+test("concurrent editing cancels completion without overwriting the user's changes", async () => {
+  const { context, editor, calls } = promptContext();
+  const inserting = insertSkillMention(context, { id: "alpha" });
+  queueMicrotask(() => { editor.insertText(" more text"); });
+  await assert.rejects(inserting, /Prompt changed/);
+  assert.ok(editor.plainText.endsWith(" more text"));
+  assert.deepEqual(calls, ["pane.focus.left"]);
 });
 
 test("distinguishes global, repo, ancestor-repo, built-in, and other skill sources", () => {
