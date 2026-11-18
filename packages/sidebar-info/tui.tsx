@@ -4,6 +4,7 @@ import type { MouseEvent } from "@opentui/core";
 import { homedir } from "node:os";
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import { insertSkillMention, recentSkillUseCount, recordSkillUse, skillScope, skillScopeColor, skillUsageColor, sortedSkills, tooltipPlacement } from "./skills.mjs";
+import { visibleSkills } from "./visibility.mjs";
 
 export default Plugin.define({
   id: "local.sidebar-info",
@@ -20,7 +21,8 @@ export default Plugin.define({
       render: (props) => {
         const location = createMemo(() => context.data.session.get(props.sessionID)?.location
           ?? context.location ?? context.data.location.default());
-        const skills = createMemo(() => sortedSkills(context.data.location.skill.list(location()) ?? []));
+        const [skills, setSkills] = createSignal<ReturnType<typeof sortedSkills>>([]);
+        const [loadingVisibility, setLoadingVisibility] = createSignal(true);
         const [now, setNow] = createSignal(Date.now());
         // Let usage colors age out even when no skill is clicked or session changed.
         const clock = setInterval(() => setNow(Date.now()), 60_000);
@@ -124,6 +126,24 @@ export default Plugin.define({
           });
         });
 
+        createEffect(() => {
+          const currentLocation = location();
+          const registered = context.data.location.skill.list(currentLocation) ?? [];
+          const abort = new AbortController();
+          onCleanup(() => abort.abort());
+          clearHover();
+          setSkills([]);
+          setLoadingVisibility(true);
+          void visibleSkills(registered, async (path) => {
+            const bytes = await context.client.file.read({ path, location: currentLocation }, { signal: abort.signal });
+            return new TextDecoder().decode(bytes);
+          }).then((visible) => {
+            if (abort.signal.aborted) return;
+            setSkills(sortedSkills(visible));
+            setLoadingVisibility(false);
+          });
+        });
+
         const SkillRows = (rows) => (
           <For each={rows.skills}>{(skill) => (
             <box flexDirection="row" width="100%" flexShrink={0} gap={1} paddingRight={2}
@@ -149,7 +169,7 @@ export default Plugin.define({
         return (
           <box flexDirection="column" flexShrink={0} marginTop={1}>
             <text fg={context.theme.text.base}><b>@ {title}</b></text>
-            <Show when={skills().length > 0} fallback={<text fg={context.theme.text.base}>{status()}</text>}>
+            <Show when={skills().length > 0} fallback={<text fg={context.theme.text.base}>{loadingVisibility() ? "Loading skills…" : status()}</text>}>
               <box flexDirection="column" paddingLeft={2} flexShrink={0}>
                 <SkillRows skills={skills()} />
               </box>

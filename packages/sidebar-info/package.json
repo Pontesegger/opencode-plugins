@@ -16,16 +16,19 @@
   "exports": {
     "./tui": "./tui.tsx"
   },
-  "files": ["LICENSE", "tui.tsx", "skills.mjs"],
+  "files": ["LICENSE", "tui.tsx", "skills.mjs", "visibility.mjs"],
   "engines": { "node": ">=26.4.0" },
-  "dependencies": { "@opencode/plugin": "2.2.7" },
+  "dependencies": {
+    "@opencode/plugin": "2.2.7",
+    "yaml": "^2.9.1"
+  },
   "peerDependencies": {
     "@opentui/core": "^0.8.4",
     "@opentui/solid": "^0.8.4",
     "solid-js": "^1.9.16"
   },
   "scripts": {
-    "test": "node --test skills.test.mjs",
+    "test": "node --test skills.test.mjs visibility.test.mjs",
     "test:hover": "bun --conditions=browser hover.test.mjs"
   },
   "devDependencies": {

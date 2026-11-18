@@ -66,10 +66,39 @@ Sources are classified from registry paths: Global for standard home skill
 directories, Repo for project-local paths (including ancestor project skill
 directories), Built-in for `skill://` paths, and Other for unclassified sources.
 Uses OpenCode's reactive skill registry for the current session's location,
-including global, project, and built-in skills; no filesystem scanning is needed.
+including global, project, and built-in skills. Reads frontmatter only from
+registered skill files through the connected server's file API; no filesystem
+scanning is needed, and remote sessions do not read the TUI machine's disk.
 It appends to `sidebar.content` without replacing any built-in sections.
 The host controls built-in ordering: this places the section below built-in
 sidebar content, not necessarily immediately after Context.
+
+## Hiding individual skills
+
+To hide a skill from this sidebar, add a boolean `hide-in-opencode` flag under
+`metadata` in its YAML frontmatter:
+
+```markdown
+---
+name: Example
+description: An example skill
+metadata:
+  hide-in-opencode: true
+---
+
+Skill instructions go here.
+```
+
+Only the boolean `true` hides the skill. Omit the field or set it to `false` to
+keep the existing display, sorting, hover behavior, and usage colors. A quoted
+`"true"` is a string and does not hide it. This is a sidebar-only setting: the
+skill remains available to the agent, explicit mentions, and OpenCode's built-in
+selectors. Stored usage history is retained when a skill is hidden.
+
+Visibility refreshes when the skill registry updates or the plugin reloads; use
+`/reload` to force a refresh after editing frontmatter. Built-in/virtual skills,
+unreadable files, and invalid frontmatter remain visible. No skill content is
+logged or added to the conversation by these metadata reads.
 
 ## Installation and configuration
 
@@ -98,7 +127,7 @@ The plugin returns the slot's unregister function so reloads clean up the old
 section. It does not modify Context Inspector or session data. The original
 plugin ID `local.sidebar-info` is retained; do not load both copies at once.
 
-Run checks with `node --test skills.test.mjs` in this directory.
+Run checks with `npm test` in this directory.
 
 For the optional rendered hover regression, install devDependencies and run
 `npm run test:hover` with Bun. It sends simulated terminal mouse movements and

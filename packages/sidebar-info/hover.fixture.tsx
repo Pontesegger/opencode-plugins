@@ -25,7 +25,10 @@ const skills = [
   { id: "global", name: "Global", path: `${homedir()}/.config/opencode/skills/global/SKILL.md` },
   { id: "other", name: "Other", path: "/shared/skills/other/SKILL.md" },
   { id: "long", name: "Very long skill name that wraps", path: "skill://long" },
+  { id: "hidden", name: "Hidden skill", path: "/shared/skills/hidden/SKILL.md" },
 ];
+const [registeredSkills, setRegisteredSkills] = createSignal(skills);
+let hideAlpha = false;
 const background = RGBA.fromHex("#222222");
 const location = { directory: "/home/test/project" };
 let prompt: TextareaRenderable;
@@ -48,6 +51,11 @@ function Skills() {
   let slot;
   plugin.setup({
     renderer: useRenderer(), options: {}, location,
+    client: { file: { read: async ({ path, location: requestedLocation }) => {
+      assert.deepEqual(requestedLocation, location, "Read metadata from the session's connected server location");
+      const hidden = path.includes("/hidden/") || (path === skill.path && hideAlpha);
+      return new TextEncoder().encode(`---\nmetadata:\n  hide-in-opencode: ${hidden}\n---\nBody`);
+    } } },
     storage: { store: (key, { initial }) => {
       assert.equal(key, "skill-usage");
       const [state, setState] = createStore(structuredClone(savedUsage ?? initial));
@@ -64,7 +72,7 @@ function Skills() {
     },
     data: {
       session: { get: () => ({ location }) },
-      location: { skill: { list: () => skills, sync: async () => {} }, reference: { list: () => [] } },
+      location: { skill: { list: () => registeredSkills(), sync: async () => {} }, reference: { list: () => [] } },
     },
     keymap: {
       commands: () => autocompleteAvailable ? [{ id: "prompt.autocomplete.complete", run() {} }] : [],
@@ -123,6 +131,7 @@ try {
     assert.equal(frame.split("Alpha").length - 1, 1, "Skills are not duplicated");
   };
   assertSingleList();
+  assert.ok(!setup.captureCharFrame().includes("Hidden skill"), "True metadata hides the skill row");
   const findText = (node, text) => node.plainText === text ? node
     : node.getChildren().map((child) => findText(child, text)).find(Boolean);
   const skillRow = findText(setup.renderer.root, "Alpha");
@@ -309,6 +318,15 @@ try {
   await setup.renderOnce();
 
   const historyBeforeAging = structuredClone(savedUsage);
+  hideAlpha = true;
+  setRegisteredSkills([...skills]);
+  await setup.renderOnce();
+  assert.ok(!setup.captureCharFrame().includes("Alpha"), "Registry updates re-read visibility metadata");
+  assert.deepEqual(savedUsage, historyBeforeAging, "Hiding does not delete usage history");
+  hideAlpha = false;
+  setRegisteredSkills([...skills]);
+  await setup.renderOnce();
+  assert.ok(setup.captureCharFrame().includes("Alpha"), "False restores the existing skill display");
   const future = originalNow() + 7 * 24 * 60 * 60 * 1000;
   Date.now = () => future;
   setMounted(false);

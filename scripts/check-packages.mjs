@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,6 +32,8 @@ try {
     mkdirSync(destination);
     run("tar", ["-xzf", join(temporary, packed.filename), "-C", destination], root);
     const extracted = join(destination, "package");
+    // Packaged helper tests also need the workspace's installed runtime dependencies.
+    symlinkSync(join(root, "node_modules"), join(extracted, "node_modules"), "dir");
     assert.equal(manifest.license, "MIT");
     assert.ok(paths.has("LICENSE"), "Missing packaged MIT license");
     assert.equal(readFileSync(join(extracted, "LICENSE"), "utf8"),
