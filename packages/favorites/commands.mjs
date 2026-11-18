@@ -1,5 +1,14 @@
 export const favorites = ["clear", "compact"];
 
+/** Open the native Ctrl+P palette without clearing or submitting the draft. */
+export async function showAllCommands(context) {
+  const action = context.keymap.commands().find((action) => action.id === "command.palette.show");
+  if (!action || action.enabled === false || (typeof action.enabled === "function" && !action.enabled())) {
+    throw new Error("Command palette is unavailable");
+  }
+  await context.keymap.dispatch(action.id);
+}
+
 export async function submitFavorite(context, command) {
   if (!favorites.includes(command)) throw new Error("Unknown favorite command");
   // Resolve the same reachable slash action used by prompt completion. Submitting

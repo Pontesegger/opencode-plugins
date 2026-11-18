@@ -1,6 +1,30 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { favorites, submitFavorite } from "./commands.mjs";
+import { favorites, showAllCommands, submitFavorite } from "./commands.mjs";
+
+test("show all commands dispatches the native palette action without touching the prompt", async () => {
+  for (const enabled of [undefined, true, () => true]) {
+    const calls = [];
+    await showAllCommands({ keymap: {
+      commands: () => [{ id: "command.palette.show", enabled }],
+      dispatch: (id) => { calls.push(id); },
+    } });
+    assert.deepEqual(calls, ["command.palette.show"]);
+  }
+});
+
+test("an unavailable or disabled palette does not dispatch anything", async () => {
+  for (const actions of [[], ...[false, () => false].map((enabled) => [
+    { id: "command.palette.show", enabled },
+  ])]) {
+    const calls = [];
+    await assert.rejects(showAllCommands({ keymap: {
+      commands: () => actions,
+      dispatch: (id) => { calls.push(id); },
+    } }), /unavailable/);
+    assert.deepEqual(calls, []);
+  }
+});
 
 test("Favorites contains clear and compact in that order", () => {
   assert.deepEqual(favorites, ["clear", "compact"]);

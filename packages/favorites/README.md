@@ -2,12 +2,17 @@
 
 A TUI-only plugin for **OpenCode V2**, targeting SDK **2.2.7**.
 
-Adds a **Favorites** heading to the right-hand session sidebar with two rows:
+Adds a **Favorites** heading to the right-hand session sidebar with these rows:
 
 - `/clear`
 - `/compact`
+- **Show all commands**, separated from `/compact` by one empty line.
 
-Left-click either row to focus the prompt and invoke the registered slash action,
+Left-click **Show all commands** to open OpenCode's native command palette, the
+same action as **Ctrl+P** (`command.palette.show`). This preserves the unfinished
+prompt and attachments; it does not submit anything.
+
+Left-click either slash-command row to focus the prompt and invoke the registered slash action,
 just like selecting it in autocomplete—no second click or Enter needed. Favorites
 resolves names and aliases from OpenCode's reachable command registry rather than
 submitting literal slash text as a chat message or hard-coding command IDs.

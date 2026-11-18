@@ -1,6 +1,9 @@
 import { Plugin } from "@opencode/plugin/tui";
 import { createSignal, For } from "solid-js";
-import { favorites, submitFavorite } from "./commands.mjs";
+import { favorites, showAllCommands, submitFavorite } from "./commands.mjs";
+
+const allCommandsLabel = "Show all commands";
+const items = [...favorites, allCommandsLabel];
 
 export default Plugin.define({
   id: "local.favorites",
@@ -15,8 +18,8 @@ export default Plugin.define({
           <box flexDirection="column" flexShrink={0} marginTop={1}>
             <text fg={context.theme.text.base}><b>Favorites</b></text>
             <box flexDirection="column" paddingLeft={2} flexShrink={0}>
-              <For each={favorites}>{(command) => (
-                <box width="100%" flexShrink={0}
+              <For each={items}>{(command) => (
+                <box width="100%" flexShrink={0} marginTop={command === allCommandsLabel ? 1 : 0}
                   onMouseOver={() => setHovered(command)}
                   onMouseOut={() => { setHovered(undefined); pressed = undefined; }}
                   onMouseDown={(event) => {
@@ -32,15 +35,18 @@ export default Plugin.define({
                     event.stopPropagation();
                     setBusy(true);
                     try {
-                      await submitFavorite(context, command);
+                      if (command === allCommandsLabel) await showAllCommands(context);
+                      else await submitFavorite(context, command);
                     } catch {
-                      context.ui.toast.show({ message: `Unable to run /${command}. The command may be unavailable in the current view.`, variant: "warning" });
+                      context.ui.toast.show({ message: command === allCommandsLabel
+                        ? "Unable to open the command palette. It may be unavailable in the current view."
+                        : `Unable to run /${command}. The command may be unavailable in the current view.`, variant: "warning" });
                     } finally {
                       setBusy(false);
                     }
                   }}>
                   <text fg={hovered() === command ? context.theme.text.base : context.theme.text.muted}
-                    selectable={false}>/{command}</text>
+                    selectable={false}>{command === allCommandsLabel ? command : `/${command}`}</text>
                 </box>
               )}</For>
             </box>
