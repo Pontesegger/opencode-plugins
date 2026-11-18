@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { barState, formatTokens, latestUsage } from "./usage.mjs";
+import { barState, formatCost, formatTokens, latestUsage } from "./usage.mjs";
 
 test("color boundaries: under 150k green; through 50% yellow; above red", () => {
   assert.equal(barState(0, 1000000).level, "green");
@@ -57,4 +57,12 @@ test("formats compact token counts", () => {
   assert.equal(formatTokens(1000000), "1M");
   assert.equal(formatTokens(1250000), "1.25M");
   assert.equal(formatTokens(42), "42");
+});
+
+test("formats session costs in USD with two decimal places", () => {
+  assert.equal(formatCost(0), "$0.00");
+  assert.equal(formatCost(0.001), "$0.00");
+  assert.equal(formatCost(0.126), "$0.13");
+  assert.equal(formatCost(12.5), "$12.50");
+  assert.equal(formatCost(1234.56), "$1,234.56");
 });

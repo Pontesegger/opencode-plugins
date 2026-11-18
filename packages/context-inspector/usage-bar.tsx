@@ -1,6 +1,6 @@
 import { usePlugin } from "@opencode/plugin/tui";
 import { createMemo, createSignal, Show } from "solid-js";
-import { barState, formatTokens, latestUsage } from "./usage.mjs";
+import { barState, formatCost, formatTokens, latestUsage } from "./usage.mjs";
 
 const colors = {
   green: "#22c55e",
@@ -25,6 +25,7 @@ export function UsageBar(props: { sessionID?: string; mode: string; onToggle: ()
     return model?.limit.context;
   });
   const state = createMemo(() => barState(usage(), limit(), context.options));
+  const cost = createMemo(() => props.sessionID ? context.data.session.cost(props.sessionID) : 0);
   const color = () => state().level === "unknown"
     ? context.theme.text.base
     : colors[state().level as keyof typeof colors];
@@ -48,8 +49,9 @@ export function UsageBar(props: { sessionID?: string; mode: string; onToggle: ()
             ? `${state().percent}% · ${formatTokens(usage()!)}/${formatTokens(limit()!)}`
             : usage() !== undefined
               ? `${formatTokens(usage()!)} tokens · window unknown`
-              : "awaiting usage"}
+               : "awaiting usage"}
         </text>
+        <text fg={context.theme.text.muted}>{` (${formatCost(cost())})`}</text>
       </box>
     </Show>
   );

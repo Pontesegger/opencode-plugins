@@ -39,6 +39,10 @@ billing totals. Usage updates when the provider reports it; unreported new
 messages/tool output are not estimated. The denominator follows the prompt's
 selected model. Compaction is reflected when the next measured request arrives.
 
+The row ends with the session's recorded cost in USD, in parentheses (for example,
+`($0.12)`). This uses OpenCode's session cost total, not a token-based estimate,
+and updates as cost data changes. Providers that report no cost show `($0.00)`.
+
 - Green: fewer than 150,000 tokens.
 - Yellow: at least 150,000 tokens and at most 50% of the selected model's window.
 - Red: at least 150,000 tokens and more than 50% of the window.

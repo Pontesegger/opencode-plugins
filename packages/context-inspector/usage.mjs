@@ -35,3 +35,7 @@ export function formatTokens(value) {
   if (value >= 1000) return `${Number((value / 1000).toFixed(1))}k`;
   return String(Math.round(value));
 }
+
+export function formatCost(value) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+}
