@@ -8,7 +8,7 @@ repository:
 | [Context Inspector](packages/context-inspector/README.md) | Context-usage row, component estimates, and read-only captured-context inspection | `opencode.json(c)` |
 | [Sidebar Info](packages/sidebar-info/README.md) | Alphabetical skill list with weekly usage colors, origin dots, hover descriptions, and click-to-insert skill commands | Global `cli.json` |
 | [Favorites](packages/favorites/README.md) | One-click `/clear` and `/compact` commands under a Favorites sidebar heading | Global `cli.json` |
-| [Busy Status](packages/busy-status/README.md) | Red animated spinner and BUSY label while the current session is working; hidden when idle | Global `cli.json` |
+| [Busy Status](packages/busy-status/README.md) | Knight Rider-style red scanner while the current session is working; hidden when idle | Global `cli.json` |
 
 ## Status and compatibility
 

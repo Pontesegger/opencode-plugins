@@ -1,14 +1,20 @@
 import { Plugin } from "@opencode/plugin/tui";
-import { createSignal, onCleanup, Show } from "solid-js";
-import { background, foreground, frames, startSpinner } from "./spinner.mjs";
+import { createSignal, For, onCleanup, Show } from "solid-js";
+import { colors, trackBackground, width, frames, startScanner } from "./scanner.mjs";
+
+const cells = Array.from({ length: width }, (_, index) => index);
 
 function BusyIndicator() {
   const [frame, setFrame] = createSignal(frames[0]);
-  onCleanup(startSpinner(setFrame));
+  onCleanup(startScanner(setFrame));
   return (
-    <text fg={foreground} bg={background} flexShrink={0} selectable={false}>
-      <b>{` ${frame()}  BUSY `}</b>
-    </text>
+    <box flexDirection="row" backgroundColor={trackBackground} paddingLeft={1} paddingRight={1} flexShrink={0}>
+      <For each={cells}>{(index) => (
+        <text fg={colors[frame()[index]] ?? colors["█"]} bg={trackBackground} width={1} flexShrink={0} selectable={false}>
+          {frame()[index] === " " ? " " : "▄"}
+        </text>
+      )}</For>
+    </box>
   );
 }
 
