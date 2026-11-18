@@ -1,6 +1,6 @@
 # OpenCode plugins
 
-Three independently loadable plugins for **OpenCode V2** in one npm-workspaces
+Four independently loadable plugins for **OpenCode V2** in one npm-workspaces
 repository:
 
 | Package | Features | Configuration |
@@ -8,6 +8,7 @@ repository:
 | [Context Inspector](packages/context-inspector/README.md) | Context-usage row, component estimates, and read-only captured-context inspection | `opencode.json(c)` |
 | [Sidebar Info](packages/sidebar-info/README.md) | Alphabetical skill list with weekly usage colors, origin dots, hover descriptions, and click-to-insert skill commands | Global `cli.json` |
 | [Favorites](packages/favorites/README.md) | One-click `/clear` and `/compact` commands under a Favorites sidebar heading | Global `cli.json` |
+| [Busy Status](packages/busy-status/README.md) | Red animated spinner and BUSY label while the current session is working; hidden when idle | Global `cli.json` |
 
 ## Status and compatibility
 
@@ -45,7 +46,7 @@ the rest of your configuration.** Global config normally lives in
 `~/.config/opencode/`, or `$XDG_CONFIG_HOME/opencode/` when set.
 
 Context Inspector's server and TUI load together from `opencode.json(c)`. Do not
-also add it to `cli.json`. Sidebar Info and Favorites are TUI-only and belong in `cli.json`.
+also add it to `cli.json`. Sidebar Info, Favorites, and Busy Status are TUI-only and belong in `cli.json`.
 If replacing the original local plugins, replace their existing entries rather
 than appending more; originals in plugin discovery directories must also be
 moved outside discovery before using the copies.
@@ -75,13 +76,15 @@ test (verified with Bun 1.4.4):
 ```sh
 npm run test:hover
 npm run test:favorites
+npm run test:busy-status
 ```
 
 This simulates mouse movement and clicks, checks hover-card visibility and
 dismissal, and verifies that clicking inserts a skill without submitting a prompt.
 The Favorites renderer test verifies one-click submission, draft replacement,
 and ignored right-clicks/drags with mocked host dispatch. GitHub Actions runs
-the Node/package checks and both Bun renderer tests.
+the Node/package checks and all three Bun renderer tests. The Busy Status test
+checks animation, idle/running transitions, session switching, and timer cleanup.
 
 Manually smoke-test all plugins in OpenCode 2.2.7 before a release: inspect a
 fresh context capture, change categories, scroll/jump headings, resize, close the
