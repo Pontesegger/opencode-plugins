@@ -12,6 +12,15 @@ repository:
 | [Activity Status](packages/activity-status/README.md) | Matching subagent/shell counters and goal flag, goal hover controls, native subagent navigation, and live details | Global `cli.json` |
 | [Links](packages/links/README.md) | Muted-gray, persistent per-session links with short labels and detailed hover cards | `opencode.json(c)` |
 
+## Busy Status preview
+
+![Busy Status: saturated-red scanner with a fading trail between dark-red square brackets](docs/images/busy-status.gif)
+
+The preview loops at the scanner's actual 90 ms/frame speed. It is captured from
+the real plugin's terminal renderer with a running-session fixture, not from a
+private conversation. Terminal font rendering may vary. A
+[static screenshot](docs/images/busy-status.png) is also available.
+
 ## Status and compatibility
 
 - Prepared from local plugins used with OpenCode **2.2.7**; the SDK dependency is
@@ -63,6 +72,10 @@ Favorites replaces any unfinished prompt and attachments before submitting the s
 
 See [Plugin look and feel](docs/ui-conventions.md) for the shared visual and
 interaction conventions, including intentional status-color differences.
+
+To regenerate the animated preview, install Bun, Python with Pillow, and a
+monospace font, then run `npm run preview:busy`. Set `PYTHON` to use a virtual
+environment's interpreter, or `PREVIEW_FONT` to select a specific font file.
 
 ```sh
 npm ci --ignore-scripts
