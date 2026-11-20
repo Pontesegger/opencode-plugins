@@ -12,25 +12,26 @@ Activity Status aligns to the right edge itself. Busy Status stays on the left.
 The group reserves **14 character columns**: three for subagents, four for shells,
 one for the goal, and two ` · ` separators. Each count uses one character;
 totals above nine display **X** (the hover list still contains the actual items).
-Absent indicators leave spaces in their fixed slots. A middle dot appears only
-when both of its adjacent indicators are visible; otherwise its three columns
-remain blank. All slots remain reserved even when both counts are zero and no
-goal is set, so indicators and Context never hop left or right as activity changes.
-Blank slots and dots are
-not interactive. The group is hidden on the home screen and in shell input mode.
+Inactive indicators remain as ghostly dark-gray (`#333333`) `0 ⧉`, `0 ❯_`, and
+`⚑` labels in their fixed slots. They stay faint on hover and are not clickable.
+A middle dot appears only when both adjacent indicators are active; otherwise
+its three columns remain blank. All slots remain reserved even when both counts
+are zero and no goal is set, so indicators and Context never hop left or right as
+activity changes. Dots are not interactive. The group is hidden on the home
+screen and in shell input mode.
 
 - `⧉` counts running descendant sessions, excluding the main session. Its hover
   list includes idle/completed subagents too, so their work remains inspectable.
 - `❯_` counts running shell commands owned by the current session at its
   location. Other sessions' shells and terminal/PTY panes are not counted.
-- `⚑` appears whenever the current session has a goal (active, paused, or met).
+- `⚑` becomes colored whenever the current session has a goal (active, paused, or met).
   Hover for its objective, status, reason, and continuation count. Click the flag
   for a larger scrollable, read-only details dialog; Esc closes it without
   interrupting the session. Goals are session-specific, not inherited or counted.
   The hover heading offers **Pause** for active goals, **Resume** for paused
   goals, and **Clear** for every goal, including met goals. These explicit clicks
   invoke OpenCode's built-in `/goal` command for the selected session. Clear
-  removes the goal and flag immediately after the server confirms the change.
+  removes the goal and restores the faint flag after the server confirms the change.
   Viewing details alone does not modify a goal. Actions are disabled while a
   command is pending; failures show an error toast. The indicator updates live,
   rereads state after successful commands, and refreshes on reconnect.
@@ -43,11 +44,10 @@ not interactive. The group is hidden on the home screen and in shell input mode.
   stays open after exit, and shows the most recent 64 KiB. Up/Down, wheel,
   PgUp/PgDn and Home scroll; End resumes following; Esc returns without killing
   the command. Output redirected to files is not captured here.
-- Each counter appears only while its active count is greater than zero, with
-  spaces preserving its position otherwise. A goal can appear by itself without
-  moving into a counter's slot.
+- Each counter is green while its active count is greater than zero and dark gray
+  otherwise. An active goal keeps its own slot alongside inactive counters.
   Labels never wrap. Hover cards float above the footer instead of taking a second
-  status row, and dismiss if their counter disappears or moves.
+  status row, and dismiss if their indicator becomes inactive or moves.
 - Existing plugin contributions and OpenCode's built-in footer are unchanged.
 
 ## Install
@@ -76,7 +76,7 @@ API, not OpenCode's internal renderables. Goal reads use the published
 `Goal.Definition` from the directly pinned `@opencode/schema` dependency. The
 built-in `opencode.goal` RPC must be available on the connected server at the
 session's location. If it is unavailable or returns unknown/malformed state, the
-goal indicator stays hidden while the counters continue working. Goal-specific
+goal indicator stays faint and noninteractive while the counters continue working. Goal-specific
 API stability is not documented, and the hover actions require the built-in
 `goal` command (a custom override may change its behavior); test compatibility before
 upgrading. No output, objectives, or transcripts are persisted by this plugin.
@@ -98,6 +98,7 @@ Helper tests cover ownership, ancestry, active counts, hover geometry, bounded
 output, exit, failures, cancellation, goal validation, location isolation, stale
 reads/events, reconnect, and disposal. Bun renderer tests simulate hover,
 click, keyboard return, live output and goals, palette equality with Skills,
+inactive ghost colors and noninteractivity,
 menu spacing, Pause/Resume/Clear commands, paused colors, duplicate-click guards,
 failure feedback, session-switch cancellation, and disabling with a mocked host. Manually check real
 subagents/shells/goals, narrow-terminal layout, and reload in OpenCode before

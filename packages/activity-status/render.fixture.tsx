@@ -201,13 +201,22 @@ try {
         assert.equal(find("Context").x, originalContextX, "Showing/hiding any indicator never moves Context");
         const row = setup.captureCharFrame().split("\n")[group.y];
         assert.equal(row.slice(group.x, group.x + 14),
-          `${hasSub ? "1 ⧉" : "   "}${hasSub && hasShell ? " · " : "   "}${hasShell ? "1 ❯_" : "    "}${hasShell && hasGoal ? " · " : "   "}${hasGoal ? "⚑" : " "}`,
-          "Indicators keep their slots; each dot is visible only when both adjacent indicators are visible");
+          `${hasSub ? "1 ⧉" : "0 ⧉"}${hasSub && hasShell ? " · " : "   "}${hasShell ? "1 ❯_" : "0 ❯_"}${hasShell && hasGoal ? " · " : "   "}⚑`,
+          "Indicators keep their slots; each dot is visible only when both adjacent indicators are active");
+        for (const [label, active] of [["0 ⧉", hasSub], ["0 ❯_", hasShell], ["⚑", hasGoal]] as const) {
+          if (!active) assert.deepEqual(findNode(setup.renderer.root, label).fg, RGBA.fromHex("#333333"), "Inactive indicators use ghostly dark gray");
+        }
         if (!hasSub && !hasShell && !hasGoal) {
-          await setup.mockMouse.moveTo(group.x, group.y);
-          await setup.mockMouse.click(group.x + 6, group.y);
-          await wait(320); await setup.renderOnce();
-          assert.ok(!setup.captureCharFrame().includes("Subagents ·") && !setup.captureCharFrame().includes("Shells ·"), "Blank slots are not interactive");
+          const commandsBefore = goalCommands.length;
+          for (const label of ["0 ⧉", "0 ❯_", "⚑"]) {
+            await hover(label);
+            assert.deepEqual(findNode(setup.renderer.root, label).fg, RGBA.fromHex("#333333"), "Inactive indicators stay dark gray on hover");
+            await click(label);
+          }
+          assert.ok(!setup.captureCharFrame().includes("Subagents ·") && !setup.captureCharFrame().includes("Shells ·") && !setup.captureCharFrame().includes("Goal ·"), "Ghost slots do not open hover cards");
+          assert.equal(dialog(), undefined, "Ghost goal does not open details");
+          assert.equal(goalCommands.length, commandsBefore, "Ghost goal does not run commands");
+          assert.equal(route().sessionID, "main", "Ghost counters do not navigate");
         }
       }
     }
@@ -265,10 +274,10 @@ try {
   await escape(); assert.equal(route().sessionID, "main");
   setStatuses("child", "idle"); setShells([{ ...shell, status: "exited" }]);
   await setup.renderOnce();
-  assert.ok(!setup.captureCharFrame().includes("⧉") && !setup.captureCharFrame().includes("❯_"), "Both zero counters disappear, even with completed subagents");
-  assert.equal(findNode(setup.renderer.root, " ($1.23)").x + findNode(setup.renderer.root, " ($1.23)").width, 100, "Context stays right-aligned when every activity slot is blank");
+  assert.ok(setup.captureCharFrame().includes("0 ⧉") && setup.captureCharFrame().includes("0 ❯_"), "Both zero counters become ghosts, even with completed subagents");
+  assert.equal(findNode(setup.renderer.root, " ($1.23)").x + findNode(setup.renderer.root, " ($1.23)").width, 100, "Context stays right-aligned when every activity slot is inactive");
   setShells([shell]); await setup.renderOnce();
-  assert.ok(setup.captureCharFrame().includes("1 ❯_") && !setup.captureCharFrame().includes("⧉"), "Shell-only activity shows only its counter");
+  assert.ok(setup.captureCharFrame().includes("1 ❯_") && setup.captureCharFrame().includes("0 ⧉"), "Shell-only activity keeps the subagent ghost");
   assertRightAligned();
   await hover("1 ❯_");
   assert.ok(setup.captureCharFrame().includes("npm run build"));
@@ -280,7 +289,7 @@ try {
   setShells([]); await wait(320); await setup.renderOnce();
   assert.ok(!setup.captureCharFrame().includes("Shells ·"), "A disappearing counter also cancels a pending hover");
   setStatuses("child", "running"); await setup.renderOnce();
-  assert.ok(setup.captureCharFrame().includes("1 ⧉") && !setup.captureCharFrame().includes("❯_"), "Subagent-only activity shows only its counter");
+  assert.ok(setup.captureCharFrame().includes("1 ⧉") && setup.captureCharFrame().includes("0 ❯_"), "Subagent-only activity keeps the shell ghost");
   assertRightAligned("1 ⧉");
   await hover("1 ⧉");
   setStatuses("child", "idle"); await setup.renderOnce();
@@ -301,7 +310,7 @@ try {
   setStatuses("child", "idle"); setShells([]); await setup.renderOnce();
   goalChanged(exampleGoal); await setup.renderOnce();
   phase = "goal-only preview";
-  assert.ok(setup.captureCharFrame().includes("⚑") && !setup.captureCharFrame().includes("⧉") && !setup.captureCharFrame().includes("❯_"), "Goal-only activity has its own visibility");
+  assert.ok(setup.captureCharFrame().includes("⚑") && setup.captureCharFrame().includes("0 ⧉") && setup.captureCharFrame().includes("0 ❯_"), "Goal-only activity keeps both counter ghosts");
   assertRightAligned("⚑");
   setStatuses("child", "running"); setShells([shell]); await setup.renderOnce();
   assertRightAligned("⚑");
@@ -357,7 +366,8 @@ try {
   assert.ok(!setup.captureCharFrame().includes("Pause") && !setup.captureCharFrame().includes("Resume"), "Met goals only offer Clear");
   await click("Clear"); await wait(20); await setup.renderOnce();
   assert.deepEqual(goalCommands.at(-1).input, { sessionID: "main", name: "goal", text: "clear" });
-  assert.ok(!setup.captureCharFrame().includes("⚑") && !setup.captureCharFrame().includes("Goal ·"), "Clearing dismisses the goal and its hover");
+  assert.deepEqual(findNode(setup.renderer.root, "⚑").fg, RGBA.fromHex("#333333"), "Clearing restores the ghost goal");
+  assert.ok(!setup.captureCharFrame().includes("Goal ·"), "Clearing dismisses the goal hover");
   assert.equal(findNode(setup.renderer.root, " ($1.23)").x + findNode(setup.renderer.root, " ($1.23)").width, 100, "Context stays right-aligned when the goal disappears");
   goalChanged(exampleGoal); setStatuses("child", "running"); setShells([shell]); await setup.renderOnce();
   phase = "goal with counters and reconnect";
@@ -365,7 +375,7 @@ try {
   goals.set("main", null);
   for (const reconnect of reconnectListeners) reconnect();
   await wait(20); await setup.renderOnce();
-  assert.ok(!setup.captureCharFrame().includes("⚑"), "Reconnect rereads goal state");
+  assert.deepEqual(findNode(setup.renderer.root, "⚑").fg, RGBA.fromHex("#333333"), "Reconnect rereads goal state and restores its ghost");
   goalChanged(exampleGoal); await setup.renderOnce(); await hover("⚑");
   commandGate = new Promise<void>((resolve) => { releaseCommand = resolve; });
   await click("Pause");
@@ -378,13 +388,13 @@ try {
   await wait(20); await setup.renderOnce();
   commandError = false;
   assert.equal(toasts.length, toastCount, "Late errors from the old session do not leak into the new session");
-  assert.ok(!setup.captureCharFrame().includes("⚑"), "Late action completion cannot affect the selected session");
+  assert.deepEqual(findNode(setup.renderer.root, "⚑").fg, RGBA.fromHex("#333333"), "Late action completion cannot activate the selected session's ghost goal");
   await escape(); assert.equal(interrupted, 1, "Unrelated sessions retain normal Esc behavior");
   setMode("shell"); await setup.renderOnce(); assert.ok(!setup.captureCharFrame().includes("⧉") && !setup.captureCharFrame().includes("❯_"));
   setMounted(false); await setup.renderOnce();
   assert.equal(unregistered, 2); assert.equal(layers.size, 0, "Disable cleans up routes and keymaps");
   assert.equal(goalListeners.size, 0); assert.equal(reconnectListeners.size, 0);
-  console.log("PASS: right-aligned fixed fourteen-column Activity with middle dots, blank slots, X overflow counts and stable positions; goal hover controls and colors; subagent/Esc navigation; live shell output; reconnect and cleanup.");
+  console.log("PASS: right-aligned fixed fourteen-column Activity with middle dots, noninteractive dark-gray ghost slots, X overflow counts and stable positions; goal hover controls and colors; subagent/Esc navigation; live shell output; reconnect and cleanup.");
 } catch (error) {
   console.error(`Renderer test failed during: ${phase}\n${setup.captureCharFrame()}`);
   throw error;

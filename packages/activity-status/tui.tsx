@@ -12,6 +12,7 @@ import { watchGoal } from "./goals.mjs";
 // Match the Skills sidebar's dark and light usage-intensity greens.
 const indicatorColors = { normal: "#228B22", hover: "#86EFAC" };
 const pausedColors = { normal: "#EAB308", hover: "#FDE047" };
+const inactiveColor = "#333333";
 type Indicator = "sub" | "shell" | "goal";
 type GoalAction = "pause" | "resume" | "clear";
 const indicators: Indicator[] = ["sub", "shell", "goal"];
@@ -218,7 +219,11 @@ export default Plugin.define({
             <box flexDirection="row" height={1} flexShrink={0} flexGrow={1} justifyContent="flex-end">
               <box id="local.activity-status.indicators" width={14} height={1} flexDirection="row" flexShrink={0}>
                 <For each={indicators}>{(kind, index) => (<>
-                  <Show when={count(kind) > 0} fallback={<box width={indicatorWidths[kind]} height={1} flexShrink={0} />}>
+                  <Show when={count(kind) > 0} fallback={
+                    <text width={indicatorWidths[kind]} wrapMode="none" height={1} flexShrink={0} selectable={false} fg={inactiveColor}>
+                      {kind === "goal" ? "⚑" : `0 ${kind === "sub" ? "⧉" : "❯_"}`}
+                    </text>
+                  }>
                     <text width={indicatorWidths[kind]} wrapMode="none" height={1} flexShrink={0} selectable={false}
                       fg={kind === "goal" && goal()?.status === "paused"
                         ? pointed() === kind ? pausedColors.hover : pausedColors.normal
