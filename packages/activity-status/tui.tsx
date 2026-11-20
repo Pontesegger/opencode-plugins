@@ -8,6 +8,7 @@ import { cardPlacement, formatCount, isDescendant, shells, subagents } from "./a
 import { ShellView } from "./shell-view";
 import { GoalDetails } from "./goal-details";
 import { watchGoal } from "./goals.mjs";
+import { prepareGoalPrompt } from "./goal-prompt.mjs";
 
 // Match the Skills sidebar's dark and light usage-intensity greens.
 const indicatorColors = { normal: "#228B22", hover: "#86EFAC" };
@@ -107,9 +108,44 @@ export default Plugin.define({
         let hoverTimer: ReturnType<typeof setTimeout> | undefined;
         let hideTimer: ReturnType<typeof setTimeout> | undefined;
         let pressed: string | undefined;
+        let pressedIndicator: Indicator | undefined;
+        let emptyGoalPressed = false;
+        let preparingGoal = false;
+        let disposed = false;
+        onCleanup(() => { disposed = true; });
         const keepOpen = () => { clearTimeout(hideTimer); hideTimer = undefined; };
         const dismiss = () => { keepOpen(); clearTimeout(hoverTimer); hoverTimer = undefined; pressed = undefined; setHover(undefined); };
-        const leave = () => { setPointed(undefined); clearTimeout(hoverTimer); keepOpen(); hideTimer = setTimeout(dismiss, 150); };
+        const leave = () => { setPointed(undefined); pressedIndicator = undefined; clearTimeout(hoverTimer); keepOpen(); hideTimer = setTimeout(dismiss, 150); };
+        const prepareGoal = async () => {
+          if (goal() || preparingGoal) return;
+          const sessionID = props.sessionID;
+          preparingGoal = true;
+          try {
+            await prepareGoalPrompt(context, location(), () => !disposed && props.sessionID === sessionID && props.mode === "normal" && !goal());
+          } catch (error) {
+            if (!disposed && props.sessionID === sessionID && !goal()) context.ui.toast.show({
+              title: "Goal", message: error instanceof Error ? error.message : "Could not prepare the goal command.", variant: "error",
+            });
+          } finally {
+            preparingGoal = false;
+          }
+        };
+        const EmptyGoal = () => (
+          <text width={indicatorWidths.goal} wrapMode="none" height={1} flexShrink={0} selectable={false}
+            fg={pointed() === "goal" ? context.theme.text.base : inactiveColor}
+            onMouseOver={() => { dismiss(); setPointed("goal"); }}
+            onMouseOut={() => { setPointed(undefined); emptyGoalPressed = false; }}
+            onMouseDown={(event) => {
+              emptyGoalPressed = event.button === 0 && !preparingGoal;
+              event.preventDefault(); event.stopPropagation();
+            }}
+            onMouseUp={(event) => {
+              const activate = emptyGoalPressed && event.button === 0 && !event.isDragging;
+              emptyGoalPressed = false;
+              event.preventDefault(); event.stopPropagation();
+              if (activate) void prepareGoal();
+            }}>⚑</text>
+        );
         const GoalHeading = () => {
           const [pointedAction, setPointedAction] = createSignal<GoalAction>();
           let pressedAction: GoalAction | undefined;
@@ -167,8 +203,8 @@ export default Plugin.define({
           if (immediately) setHover(kind);
           else hoverTimer = setTimeout(() => setHover(kind), 250);
         };
-        const resize = (width: number, height: number) => { dismiss(); setPointed(undefined); setSize({ width, height }); };
-        const blur = () => { dismiss(); setPointed(undefined); };
+        const resize = (width: number, height: number) => { dismiss(); setPointed(undefined); pressedIndicator = undefined; emptyGoalPressed = false; setSize({ width, height }); };
+        const blur = () => { dismiss(); setPointed(undefined); pressedIndicator = undefined; emptyGoalPressed = false; };
         context.renderer.on("resize", resize);
         context.renderer.on("blur", blur);
         onCleanup(() => {
@@ -177,15 +213,19 @@ export default Plugin.define({
         });
         createEffect(() => {
           const sessionID = props.sessionID;
-          const current = location();
-          dismiss(); setPointed(undefined);
+           const current = location();
+           emptyGoalPressed = false;
+           pressedIndicator = undefined;
+           dismiss(); setPointed(undefined);
           if (goalDialogOpen) context.ui.dialog.clear();
           if (sessionID) void context.data.shell.sync(current).catch(() => {});
         });
         createEffect(() => {
            // A disappearing counter invalidates its card. Cancel pending hover
            // timers as well as already-open cards; fixed slots never shift.
-          visibility(); props.mode;
+           visibility(); props.mode;
+           emptyGoalPressed = false;
+           pressedIndicator = undefined;
           dismiss(); setPointed(undefined);
         });
         context.keymap.layer(() => ({
@@ -219,9 +259,9 @@ export default Plugin.define({
             <box flexDirection="row" height={1} flexShrink={0} flexGrow={1} justifyContent="flex-end">
               <box id="local.activity-status.indicators" width={14} height={1} flexDirection="row" flexShrink={0}>
                 <For each={indicators}>{(kind, index) => (<>
-                  <Show when={count(kind) > 0} fallback={
+                  <Show when={count(kind) > 0} fallback={kind === "goal" ? <EmptyGoal /> :
                     <text width={indicatorWidths[kind]} wrapMode="none" height={1} flexShrink={0} selectable={false} fg={inactiveColor}>
-                      {kind === "goal" ? "⚑" : `0 ${kind === "sub" ? "⧉" : "❯_"}`}
+                      {`0 ${kind === "sub" ? "⧉" : "❯_"}`}
                     </text>
                   }>
                     <text width={indicatorWidths[kind]} wrapMode="none" height={1} flexShrink={0} selectable={false}
@@ -229,11 +269,17 @@ export default Plugin.define({
                         ? pointed() === kind ? pausedColors.hover : pausedColors.normal
                         : pointed() === kind ? indicatorColors.hover : indicatorColors.normal}
                       onMouseOver={(event) => open(kind, event)} onMouseOut={leave}
-                      onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); }}
-                      onMouseUp={(event) => { if (event.button === 0 && !event.isDragging) {
+                      onMouseDown={(event) => {
+                        pressedIndicator = event.button === 0 ? kind : undefined;
                         event.preventDefault(); event.stopPropagation();
+                      }}
+                      onMouseUp={(event) => {
+                        const activate = pressedIndicator === kind && event.button === 0 && !event.isDragging;
+                        pressedIndicator = undefined;
+                        event.preventDefault(); event.stopPropagation();
+                        if (!activate) return;
                         if (kind === "goal") showGoal(); else open(kind, event, true);
-                      } }}>
+                      }}>
                       {kind === "goal" ? "⚑" : `${formatCount(count(kind))} ${kind === "sub" ? "⧉" : "❯_"}`}
                     </text>
                   </Show>

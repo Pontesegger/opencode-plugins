@@ -61,6 +61,9 @@ Favorites replaces any unfinished prompt and attachments before submitting the s
 
 ## Development and verification
 
+See [Plugin look and feel](docs/ui-conventions.md) for the shared visual and
+interaction conventions, including intentional status-color differences.
+
 ```sh
 npm ci --ignore-scripts
 npm run check
@@ -89,12 +92,12 @@ This simulates mouse movement and clicks, checks hover-card visibility and
 dismissal, and verifies that clicking inserts a skill without submitting a prompt.
 The Favorites renderer test verifies one-click submission, draft replacement,
 and ignored right-clicks/drags with mocked host dispatch. Favorites, Skills, and
-Links renderer tests also verify white boxed header controls, two-column right
-padding, header-only collapse, expansion, resize, and hover cleanup where applicable.
+Links renderer tests also verify gray ASCII header controls with bright-white hover,
+one-column right padding, header-only collapse, expansion, resize, and hover cleanup where applicable.
 GitHub Actions runs
 the Node/package checks and all six Bun renderer tests. The Context test checks
 rightmost alignment while idle/busy, with activity and standard-footer toggles,
-resizing, and click handling. The Busy Status test
+resizing, neutral/category hover feedback, and ignored right-clicks/drags. The Busy Status test
 checks animation, idle/running transitions, session switching, and timer cleanup.
 The Links test checks gray styling, hover cards, native hyperlinks, live updates, session isolation, stale
 requests, reconnect, and listener cleanup.

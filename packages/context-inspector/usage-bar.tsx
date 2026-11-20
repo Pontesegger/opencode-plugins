@@ -1,6 +1,7 @@
 import { usePlugin } from "@opencode/plugin/tui";
-import { createMemo, createSignal, Show } from "solid-js";
+import { createMemo, Show } from "solid-js";
 import { barState, formatCost, formatTokens, latestContextUsage } from "./usage.mjs";
+import { InteractiveText } from "./interactive-text";
 
 const colors = {
   green: "#22c55e",
@@ -10,7 +11,6 @@ const colors = {
 
 export function UsageBar(props: { sessionID?: string; mode: string; onToggle: () => void }) {
   const context = usePlugin();
-  const [hovered, setHovered] = createSignal(false);
   const measurement = createMemo(() => latestContextUsage(props.sessionID
     ? context.data.session.message.list(props.sessionID)
     : []));
@@ -36,14 +36,7 @@ export function UsageBar(props: { sessionID?: string; mode: string; onToggle: ()
       {/* Auto margin anchors Context alone without growing a blank gap between
           it and Activity Status, whose right-aligned container fills the row. */}
       <box flexDirection="row" paddingLeft={1} flexShrink={0} marginLeft="auto" justifyContent="flex-end">
-        <text fg={hovered() ? context.theme.text.base : context.theme.text.muted} selectable={false}
-          onMouseOver={() => setHovered(true)}
-          onMouseOut={() => setHovered(false)}
-          onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); }}
-          onMouseUp={(event) => {
-            if (event.button !== 0) return;
-            event.preventDefault(); event.stopPropagation(); props.onToggle();
-          }}>Context</text>
+        <InteractiveText context={context} onClick={props.onToggle}>Context</InteractiveText>
         <text fg={context.theme.text.base}> [</text>
         <text fg={color()}>{state().filled}</text>
         <text fg={context.theme.text.base}>{state().empty}] </text>

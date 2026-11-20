@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { RGBA } from "@opentui/core";
+import { RGBA, type TextareaRenderable } from "@opentui/core";
 import { Portal, testRender, useRenderer } from "@opentui/solid";
 import { createSignal, onCleanup, Show } from "solid-js";
 import { createStore, produce } from "solid-js/store";
@@ -39,6 +39,9 @@ const goals = new Map<string, any>();
 const goalCommands: any[] = [];
 const toasts: any[] = [];
 let commandError = false;
+let prompt: TextareaRenderable;
+let goalPromptSelections = 0;
+let promptSubmissions = 0;
 let commandGate: Promise<void> | undefined;
 const exampleGoal = { id: "goal", objective: "Consistent plugin appearance", status: "active", rounds: 1, maxRounds: 50, boot: "server", updatedAt: 10 };
 const [dialog, setDialog] = createSignal<() => any>();
@@ -70,7 +73,10 @@ function Host() {
     data: {
       on: (name, callback) => { assert.equal(name, "server.connected"); reconnectListeners.add(callback); return () => { reconnectListeners.delete(callback); }; },
        session: { get: (id) => sessions[id], family, status: (id) => id.startsWith("extra-") ? "running" : statuses[id] ?? "idle" },
-      shell: { list: () => shells(), sync: async () => {} }, location: { default: () => location },
+       shell: { list: () => shells(), sync: async () => {} }, location: {
+         default: () => location,
+         command: { list: () => [{ name: "goal" }] },
+       },
     },
     client: {
       rpc: (definition) => {
@@ -97,7 +103,21 @@ function Host() {
       },
     } },
     keymap: {
-      layer: (factory) => { layers.add(factory); onCleanup(() => layers.delete(factory)); },
+       layer: (factory) => { layers.add(factory); onCleanup(() => layers.delete(factory)); },
+       commands: () => [
+         { id: "prompt.autocomplete.hide" },
+         ...(prompt?.getTextRange(0, prompt.cursorOffset) === "/goal" ? [{ id: "prompt.autocomplete.complete" }] : []),
+       ],
+       dispatch: async (id) => {
+         if (id === "pane.focus.left") { prompt.focus(); return; }
+         if (id === "prompt.autocomplete.hide") return;
+         assert.equal(id, "prompt.autocomplete.complete", "Goal entry uses native completion, never paste, clear, or submit");
+         assert.equal(prompt.getTextRange(0, prompt.cursorOffset), "/goal");
+         const end = prompt.logicalCursor;
+         prompt.deleteRange(0, 0, end.row, end.col);
+         prompt.insertText("/goal ");
+         goalPromptSelections++;
+       },
     },
     ui: {
       toast: { show: (toast) => toasts.push(toast) },
@@ -114,7 +134,8 @@ function Host() {
   return <>
     <Show when={route().type === "session"} fallback={<Show when={page}>{() => page.render({})}</Show>}>
       <box width="100%" height="100%" flexDirection="column">
-        <text>{route().sessionID === "child" ? "CHILD WORK AND TRANSCRIPT" : "MAIN TRANSCRIPT"}</text>
+         <text>{route().sessionID === "child" ? "CHILD WORK AND TRANSCRIPT" : "MAIN TRANSCRIPT"}</text>
+         <textarea ref={(editor) => { prompt = editor; }} width="100%" height={3} onSubmit={() => { promptSubmissions++; }} />
         <box flexGrow={1} />
         <box flexDirection="row" height={1} gap={2}>
            <Show when={busyVisible()}><text flexShrink={0}>BUSY</text></Show>
@@ -182,6 +203,25 @@ try {
     }
   };
   assertRightAligned();
+  for (const [label, heading] of [["1 ⧉", "Subagents ·"], ["1 ❯_", "Shells ·"]]) {
+    await setup.mockMouse.moveTo(0, 0); await wait(200); await setup.renderOnce();
+    const at = find(label);
+    await setup.mockMouse.click(at.x, at.y, 2); await setup.renderOnce();
+    assert.ok(!setup.captureCharFrame().includes(heading), "Right-click cannot immediately open an activity list");
+    await setup.mockMouse.moveTo(0, 0);
+    await setup.mockMouse.pressDown(at.x, at.y);
+    await setup.mockMouse.moveTo(0, 0); await setup.mockMouse.release(0, 0);
+    await wait(320); await setup.renderOnce();
+    assert.ok(!setup.captureCharFrame().includes(heading), "Dragging away from an activity icon never opens its list");
+    await setup.mockMouse.pressDown(0, 0);
+    await setup.mockMouse.moveTo(at.x, at.y); await setup.mockMouse.release(at.x, at.y);
+    await setup.renderOnce();
+    assert.ok(!setup.captureCharFrame().includes(heading), "Dragging onto an activity icon never immediately opens its list");
+    await setup.mockMouse.moveTo(0, 0);
+    await setup.mockMouse.click(at.x, at.y); await setup.renderOnce();
+    assert.ok(setup.captureCharFrame().includes(heading), `A left click opens the ${label} activity list immediately`);
+    await escape();
+  }
   setContextVisible(false); await setup.renderOnce(); assertRightAligned();
   setBusyVisible(false); await setup.renderOnce(); assertRightAligned();
   setContextVisible(true); await setup.renderOnce(); assertRightAligned();
@@ -208,7 +248,7 @@ try {
         }
         if (!hasSub && !hasShell && !hasGoal) {
           const commandsBefore = goalCommands.length;
-          for (const label of ["0 ⧉", "0 ❯_", "⚑"]) {
+          for (const label of ["0 ⧉", "0 ❯_"]) {
             await hover(label);
             assert.deepEqual(findNode(setup.renderer.root, label).fg, RGBA.fromHex("#333333"), "Inactive indicators stay dark gray on hover");
             await click(label);
@@ -217,6 +257,33 @@ try {
           assert.equal(dialog(), undefined, "Ghost goal does not open details");
           assert.equal(goalCommands.length, commandsBefore, "Ghost goal does not run commands");
           assert.equal(route().sessionID, "main", "Ghost counters do not navigate");
+          prompt.setText("Keep this draft");
+          const selectionsBefore = goalPromptSelections;
+          await hover("⚑");
+          assert.deepEqual(findNode(setup.renderer.root, "⚑").fg, RGBA.fromHex("#ffffff"), "Empty goal turns bright white on hover");
+          assert.ok(!setup.captureCharFrame().includes("Goal ·"), "Empty goal hover does not open goal details");
+          await click("⚑", 2);
+          assert.equal(prompt.plainText, "Keep this draft", "Right click does not prepare a goal");
+          const flag = find("⚑");
+          await setup.mockMouse.pressDown(flag.x, flag.y);
+          await setup.mockMouse.moveTo(0, 0);
+          await setup.mockMouse.release(0, 0);
+          await setup.renderOnce();
+          assert.equal(prompt.plainText, "Keep this draft", "Dragging away does not prepare a goal");
+          assert.deepEqual(findNode(setup.renderer.root, "⚑").fg, RGBA.fromHex("#333333"), "Empty goal returns to dark gray on mouse leave");
+          await click("⚑"); await wait(20); await setup.renderOnce();
+          assert.equal(prompt.plainText, "/goal Keep this draft", "Native goal completion preserves the draft after a trailing space");
+          assert.equal(prompt.cursorOffset, 6, "Cursor is ready for the objective after /goal and a space");
+          assert.equal(goalPromptSelections, selectionsBefore + 1, "Click selects the native goal completion once");
+          assert.equal(setup.renderer.currentFocusedEditor, prompt, "Goal click focuses the prompt");
+          await click("⚑"); await wait(20); await setup.renderOnce();
+          assert.equal(prompt.plainText, "/goal Keep this draft", "Repeated clicks do not duplicate the command");
+          assert.equal(goalPromptSelections, selectionsBefore + 1);
+          assert.equal(promptSubmissions, 0, "Preparing a goal does not submit the prompt");
+          assert.equal(goalCommands.length, commandsBefore, "Preparing a goal never invokes the server command");
+          assert.equal(dialog(), undefined, "Preparing a goal does not open details");
+          prompt.setText("");
+          await setup.mockMouse.moveTo(0, 0); await setup.renderOnce();
         }
       }
     }
@@ -354,6 +421,15 @@ try {
   await escape(); assert.equal(interrupted, 0);
   phase = "goal details dialog";
   await click("⚑", 2); assert.equal(dialog(), undefined, "Right click cannot open goal details");
+  const activeFlag = find("⚑");
+  await setup.mockMouse.pressDown(activeFlag.x, activeFlag.y);
+  await setup.mockMouse.moveTo(0, 0); await setup.mockMouse.release(0, 0);
+  await setup.renderOnce();
+  assert.equal(dialog(), undefined, "Dragging away from an active goal cannot open details");
+  await setup.mockMouse.pressDown(0, 0);
+  await setup.mockMouse.moveTo(activeFlag.x, activeFlag.y); await setup.mockMouse.release(activeFlag.x, activeFlag.y);
+  await setup.renderOnce();
+  assert.equal(dialog(), undefined, "Dragging onto an active goal cannot open details");
   await click("⚑"); assert.ok(dialog(), "Goal click opens read-only details without navigating");
   assert.ok(setup.captureCharFrame().includes("⚑ Goal · read-only · Esc close"));
   assert.equal(route().sessionID, "main");
@@ -394,7 +470,7 @@ try {
   setMounted(false); await setup.renderOnce();
   assert.equal(unregistered, 2); assert.equal(layers.size, 0, "Disable cleans up routes and keymaps");
   assert.equal(goalListeners.size, 0); assert.equal(reconnectListeners.size, 0);
-  console.log("PASS: right-aligned fixed fourteen-column Activity with middle dots, noninteractive dark-gray ghost slots, X overflow counts and stable positions; goal hover controls and colors; subagent/Esc navigation; live shell output; reconnect and cleanup.");
+  console.log("PASS: right-aligned fixed fourteen-column Activity with middle dots, dark-gray ghosts, empty-goal white hover and native prompt completion, X overflow counts and stable positions; goal hover controls and colors; subagent/Esc navigation; live shell output; reconnect and cleanup.");
 } catch (error) {
   console.error(`Renderer test failed during: ${phase}\n${setup.captureCharFrame()}`);
   throw error;

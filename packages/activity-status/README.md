@@ -13,7 +13,12 @@ The group reserves **14 character columns**: three for subagents, four for shell
 one for the goal, and two ` · ` separators. Each count uses one character;
 totals above nine display **X** (the hover list still contains the actual items).
 Inactive indicators remain as ghostly dark-gray (`#333333`) `0 ⧉`, `0 ❯_`, and
-`⚑` labels in their fixed slots. They stay faint on hover and are not clickable.
+`⚑` labels in their fixed slots. Empty counters stay faint on hover and are not
+clickable. The empty-goal flag turns bright white on hover; left-click selects
+the registered `/goal` through native prompt autocomplete, leaving `/goal `
+ready for an objective without submitting or pasting. Existing draft text and
+attachments are preserved, with the cursor after the command's trailing space.
+Repeated clicks do not duplicate the prefix. Right-clicks and drags are ignored.
 A middle dot appears only when both adjacent indicators are active; otherwise
 its three columns remain blank. All slots remain reserved even when both counts
 are zero and no goal is set, so indicators and Context never hop left or right as
@@ -76,7 +81,9 @@ API, not OpenCode's internal renderables. Goal reads use the published
 `Goal.Definition` from the directly pinned `@opencode/schema` dependency. The
 built-in `opencode.goal` RPC must be available on the connected server at the
 session's location. If it is unavailable or returns unknown/malformed state, the
-goal indicator stays faint and noninteractive while the counters continue working. Goal-specific
+goal indicator stays faint while the counters continue working. Preparing a goal
+requires the registered `goal` command and native prompt autocomplete; unavailable
+completion shows an error instead of pasting or running the command. Goal-specific
 API stability is not documented, and the hover actions require the built-in
 `goal` command (a custom override may change its behavior); test compatibility before
 upgrading. No output, objectives, or transcripts are persisted by this plugin.
@@ -98,7 +105,7 @@ Helper tests cover ownership, ancestry, active counts, hover geometry, bounded
 output, exit, failures, cancellation, goal validation, location isolation, stale
 reads/events, reconnect, and disposal. Bun renderer tests simulate hover,
 click, keyboard return, live output and goals, palette equality with Skills,
-inactive ghost colors and noninteractivity,
+inactive ghost colors, noninteractive empty counters, empty-goal hover and native command preparation,
 menu spacing, Pause/Resume/Clear commands, paused colors, duplicate-click guards,
 failure feedback, session-switch cancellation, and disabling with a mocked host. Manually check real
 subagents/shells/goals, narrow-terminal layout, and reload in OpenCode before

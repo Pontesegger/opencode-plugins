@@ -9,6 +9,9 @@
 - `/context`: the same show/hide toggle for keyboard access.
 - Click a colored block **or its legend label** to view captured text in a
   dedicated, scrollable read-only inspector, centered at 80% of screen width.
+  Blocks, legend labels, and category selectors retain their semantic colors
+  normally and highlight bright white on hover. Only a complete left-click
+  activates them; right-clicks and drags are ignored, matching the other plugins.
 - `/context-inspect`: keyboard-accessible category picker.
 - The selector at the top switches between the included main categories.
   Click a heading or use Left/Right; the selected heading is bracketed.

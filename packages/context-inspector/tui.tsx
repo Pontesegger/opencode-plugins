@@ -6,6 +6,7 @@ import { categories, segmentWidths } from "./snapshot.mjs";
 import { adjacentHeading, headingLines, headingOffsets } from "./headings.mjs";
 import type { Category, Inspection, Section, Summary } from "./types";
 import { UsageBar } from "./usage-bar";
+import { InteractiveText } from "./interactive-text";
 
 const color = (id: string) => categories.find((category) => category[0] === id)?.[2] ?? "#60a5fa";
 const tokens = (value: number) => value >= 1000 ? `${Number((value / 1000).toFixed(1))}k` : String(value);
@@ -138,12 +139,9 @@ export default Plugin.define({
             <text width={contentWidth()} height={1} flexShrink={0} fg={context.theme.text.base}>Context inspector</text>
             <box width={contentWidth()} height={2} flexShrink={0} flexDirection="row" flexWrap="wrap" gap={1}>
               <For each={choices()}>{(section) => (
-                <text height={1} flexShrink={0} fg={color(section.id)} selectable={false}
-                  onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); }}
-                  onMouseUp={(event) => {
-                    if (event.button !== 0) return;
-                    event.preventDefault(); event.stopPropagation(); void inspect(section.id);
-                  }}>{inspection()?.section.id === section.id ? `[${section.label}]` : section.label}</text>
+                <InteractiveText context={context} color={color(section.id)} onClick={() => { void inspect(section.id); }}>
+                  {inspection()?.section.id === section.id ? `[${section.label}]` : section.label}
+                </InteractiveText>
               )}</For>
             </box>
             <text width={contentWidth()} height={1} flexShrink={0} fg={color(inspection()?.section.id ?? "prompt")}>{inspection()?.section.label} · ≈{tokens(inspection()?.section.tokens ?? 0)} tokens</text>
@@ -256,26 +254,16 @@ export default Plugin.define({
                 </text>
                 <box flexDirection="row" gap={2} flexShrink={0}>
                   <For each={segments()}>{(section) => (
-                    <text fg={color(section.id)} selectable={false}
-                      onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); }}
-                      onMouseUp={(event) => {
-                        if (event.button !== 0) return;
-                        event.preventDefault();
-                        event.stopPropagation();
-                        void inspect(section.id as Category);
-                      }}>{"█".repeat(section.width)}</text>
+                    <InteractiveText context={context} color={color(section.id)} onClick={() => { void inspect(section.id as Category); }}>
+                      {"█".repeat(section.width)}
+                    </InteractiveText>
                   )}</For>
                 </box>
                 <box flexDirection="row" flexWrap="wrap" gap={2}>
                   <For each={segments()}>{(section) => (
-                    <text fg={color(section.id)} selectable={false}
-                      onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); }}
-                      onMouseUp={(event) => {
-                        if (event.button !== 0) return;
-                        event.preventDefault();
-                        event.stopPropagation();
-                        void inspect(section.id as Category);
-                      }}>{section.label} ≈{tokens(section.tokens)}</text>
+                    <InteractiveText context={context} color={color(section.id)} onClick={() => { void inspect(section.id as Category); }}>
+                      {section.label} ≈{tokens(section.tokens)}
+                    </InteractiveText>
                   )}</For>
                 </box>
                 <text fg={context.theme.text.base}>No conversation or free space · click Context or /context to hide · /context-inspect for keyboard access</text>
