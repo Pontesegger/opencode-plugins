@@ -78,6 +78,7 @@ test (verified with Bun 1.4.4):
 
 ```sh
 npm run test:hover
+npm run test:context
 npm run test:favorites
 npm run test:busy-status
 npm run test:links
@@ -88,7 +89,9 @@ This simulates mouse movement and clicks, checks hover-card visibility and
 dismissal, and verifies that clicking inserts a skill without submitting a prompt.
 The Favorites renderer test verifies one-click submission, draft replacement,
 and ignored right-clicks/drags with mocked host dispatch. GitHub Actions runs
-the Node/package checks and all five Bun renderer tests. The Busy Status test
+the Node/package checks and all six Bun renderer tests. The Context test checks
+rightmost alignment while idle/busy, with activity and standard-footer toggles,
+resizing, and click handling. The Busy Status test
 checks animation, idle/running transitions, session switching, and timer cleanup.
 The Links test checks gray styling, hover cards, native hyperlinks, live updates, session isolation, stale
 requests, reconnect, and listener cleanup.

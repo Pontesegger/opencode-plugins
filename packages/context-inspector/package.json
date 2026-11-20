@@ -26,5 +26,8 @@
     "@opentui/solid": "^0.8.4",
     "solid-js": "^1.9.16"
   },
-  "scripts": { "test": "node --test *.test.mjs" }
+  "scripts": {
+    "test": "node --test headings.test.mjs snapshot.test.mjs usage.test.mjs",
+    "test:render": "bun --conditions=browser render.test.mjs"
+  }
 }

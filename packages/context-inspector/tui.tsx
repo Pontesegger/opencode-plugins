@@ -222,7 +222,8 @@ export default Plugin.define({
       }
     });
 
-    // Keep the usage row below the built-in footer, independent of detail visibility.
+    // Follow the built-in footer and the before contributions (Busy/Activity),
+    // keeping Context rightmost and independent of detail/footer visibility.
     const removeUsageSlot = context.ui.slot({
       after: "prompt.footer",
       render: (props) => <UsageBar sessionID={props.sessionID} mode={props.mode} onToggle={toggleDetails} />,

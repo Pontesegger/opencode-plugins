@@ -33,7 +33,7 @@ export function UsageBar(props: { sessionID?: string; mode: string; onToggle: ()
 
   return (
     <Show when={props.sessionID && props.mode === "normal"}>
-      <box flexDirection="row" paddingLeft={1} flexShrink={0}>
+      <box flexDirection="row" paddingLeft={1} flexShrink={0} flexGrow={1} justifyContent="flex-end">
         <text fg={hovered() ? context.theme.text.base : context.theme.text.muted} selectable={false}
           onMouseOver={() => setHovered(true)}
           onMouseOut={() => setHovered(false)}

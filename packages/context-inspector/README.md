@@ -33,6 +33,11 @@ plugin; built-in footer/status information is left intact.
 
 ## Overall context usage
 
+The usage display stays right-aligned as the rightmost plugin in the prompt
+footer area, including while the session is idle and waiting for input. Busy
+Status and Activity Status remain to its left. Toggling the standard status bar
+does not change that alignment.
+
 The usage row uses the latest assistant request's reported input + cached input +
 output + reasoning, matching V2's normalized `TokenUsage.total`, not cumulative
 billing totals. Usage updates when the provider reports it; unreported new

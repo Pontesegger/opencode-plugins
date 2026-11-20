@@ -9,6 +9,7 @@
   "scripts": {
     "test": "npm run test --workspaces",
     "test:hover": "npm run test:hover --workspace=opencode-sidebar-info",
+    "test:context": "npm run test:render --workspace=opencode-context-inspector",
     "test:favorites": "npm run test:render --workspace=opencode-favorites",
     "test:busy-status": "npm run test:render --workspace=opencode-busy-status",
     "test:links": "npm run test:render --workspace=opencode-links",
