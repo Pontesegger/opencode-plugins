@@ -1,6 +1,6 @@
 import { usePlugin } from "@opencode/plugin/tui";
 import { createMemo, createSignal, Show } from "solid-js";
-import { barState, formatCost, formatTokens, latestUsage } from "./usage.mjs";
+import { barState, formatCost, formatTokens, latestContextUsage } from "./usage.mjs";
 
 const colors = {
   green: "#22c55e",
@@ -11,9 +11,10 @@ const colors = {
 export function UsageBar(props: { sessionID?: string; mode: string; onToggle: () => void }) {
   const context = usePlugin();
   const [hovered, setHovered] = createSignal(false);
-  const usage = createMemo(() => props.sessionID
-    ? latestUsage(context.data.session.message.list(props.sessionID))
-    : undefined);
+  const measurement = createMemo(() => latestContextUsage(props.sessionID
+    ? context.data.session.message.list(props.sessionID)
+    : []));
+  const usage = () => measurement().used;
   const limit = createMemo(() => {
     const session = props.sessionID ? context.data.session.get(props.sessionID) : undefined;
     const selected = context.ui.model.current();
@@ -49,7 +50,11 @@ export function UsageBar(props: { sessionID?: string; mode: string; onToggle: ()
             ? `${state().percent}% · ${formatTokens(usage()!)}/${formatTokens(limit()!)}`
             : usage() !== undefined
               ? `${formatTokens(usage()!)} tokens · window unknown`
-               : "awaiting usage"}
+              : measurement().status === "compacted"
+                ? "? · compacted"
+                : measurement().status === "compacting"
+                  ? "? · compacting"
+                  : "awaiting usage"}
         </text>
         <text fg={context.theme.text.muted}>{` (${formatCost(cost())})`}</text>
       </box>

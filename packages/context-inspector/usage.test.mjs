@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { barState, formatCost, formatTokens, latestUsage } from "./usage.mjs";
+import { barState, formatCost, formatTokens, latestContextUsage, latestUsage } from "./usage.mjs";
 
 test("color boundaries: under 150k green; through 50% yellow; above red", () => {
   assert.equal(barState(0, 1000000).level, "green");
@@ -47,9 +47,54 @@ test("uses the latest measured request, including caches and separate reasoning"
 test("compaction can reduce usage; do not retain the historical high-water mark", () => {
   assert.equal(latestUsage([
     { type: "assistant", tokens: { input: 500000, output: 100 } },
-    { type: "compaction" },
+    { type: "compaction", status: "completed" },
     { type: "assistant", tokens: { input: 10000, output: 100 } },
   ]), 10100);
+});
+
+test("completed compaction invalidates old usage until a fresh measurement arrives", () => {
+  for (const reason of ["manual", "auto"]) {
+    const messages = [
+      { type: "assistant", tokens: { input: 500000, output: 100 } },
+      { type: "compaction", status: "completed", reason, tokens: { input: 500000, output: 2000 } },
+      { type: "user" },
+      { type: "assistant", tokens: { input: 0, output: 0 } },
+      { type: "assistant" },
+    ];
+    assert.deepEqual(latestContextUsage(messages), { status: "compacted", used: undefined });
+    assert.equal(latestUsage(messages), undefined);
+    const state = barState(latestUsage(messages), 1000000);
+    assert.equal(state.known, false);
+    assert.equal(state.level, "unknown");
+    assert.equal(state.filled, "");
+    assert.equal(state.percent, undefined);
+
+    messages.push({ type: "assistant", tokens: { input: 10000, output: 100 } });
+    assert.deepEqual(latestContextUsage(messages), { status: "measured", used: 10100 });
+  }
+});
+
+test("running compaction is unknown, but failed compaction preserves prior usage", () => {
+  const messages = [
+    { type: "assistant", tokens: { input: 500000, output: 100 } },
+    { type: "compaction", status: "running" },
+  ];
+  assert.deepEqual(latestContextUsage(messages), { status: "compacting", used: undefined });
+  messages[1] = { type: "compaction", status: "failed" };
+  assert.deepEqual(latestContextUsage(messages), { status: "measured", used: 500100 });
+});
+
+test("a later failed compaction cannot revive usage from before a successful compaction", () => {
+  assert.deepEqual(latestContextUsage([
+    { type: "assistant", tokens: { input: 500000 } },
+    { type: "compaction", status: "completed" },
+    { type: "compaction", status: "failed" },
+  ]), { status: "compacted", used: undefined });
+});
+
+test("sessions without measurements await usage rather than claiming compaction", () => {
+  assert.deepEqual(latestContextUsage([]), { status: "awaiting", used: undefined });
+  assert.deepEqual(latestContextUsage([{ type: "user" }]), { status: "awaiting", used: undefined });
 });
 
 test("formats compact token counts", () => {

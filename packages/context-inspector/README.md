@@ -37,7 +37,12 @@ The usage row uses the latest assistant request's reported input + cached input 
 output + reasoning, matching V2's normalized `TokenUsage.total`, not cumulative
 billing totals. Usage updates when the provider reports it; unreported new
 messages/tool output are not estimated. The denominator follows the prompt's
-selected model. Compaction is reflected when the next measured request arrives.
+selected model. While compaction runs, the row shows `? · compacting`. After it
+completes, it shows `? · compacted` with a neutral, unfilled bar instead of the
+stale pre-compaction percentage. This means usage is unknown, not zero. The next
+measured assistant request restores the normal percentage and token counts.
+Compaction's own token usage is not a measurement of the resulting context;
+failed compaction leaves the previous measurement intact.
 
 The row ends with the session's recorded cost in USD, in parentheses (for example,
 `($0.12)`). This uses OpenCode's session cost total, not a token-based estimate,

@@ -1,16 +1,25 @@
 /** Latest request only: session totals measure billing, not context occupancy. */
 export function latestUsage(messages) {
+  return latestContextUsage(messages).used;
+}
+
+/** A compaction request's own tokens do not measure the resulting context. */
+export function latestContextUsage(messages) {
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i];
+    if (message.type === "compaction") {
+      if (message.status === "completed") return { status: "compacted", used: undefined };
+      if (message.status === "running") return { status: "compacting", used: undefined };
+    }
     if (message.type !== "assistant" || !message.tokens) continue;
     const tokens = message.tokens;
     // V2 TokenUsage normalizes reasoning separately from ordinary output.
     // Cached input still occupies context. Match TokenUsage.total in the SDK.
     const used = [tokens.input, tokens.output, tokens.reasoning, tokens.cache?.read, tokens.cache?.write]
       .reduce((sum, value) => sum + (Number.isFinite(value) ? Math.max(0, value) : 0), 0);
-    if (used > 0) return used;
+    if (used > 0) return { status: "measured", used };
   }
-  return undefined;
+  return { status: "awaiting", used: undefined };
 }
 
 export function barState(used, limit, options = {}) {
