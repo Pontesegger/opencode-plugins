@@ -21,6 +21,7 @@ export default Plugin.define({
         const [links, setLinks] = createSignal<Link[]>([]);
         const [hoveredURL, setHoveredURL] = createSignal<string>();
         const [pointedURL, setPointedURL] = createSignal<string>();
+        const [toggleHovered, setToggleHovered] = createSignal(false);
         const [anchor, setAnchor] = createSignal({ x: 0, y: 0 });
         const [size, setSize] = createSignal({ width: context.renderer.width, height: context.renderer.height });
         const hovered = createMemo(() => links().find((link) => link.url === hoveredURL()));
@@ -95,10 +96,11 @@ export default Plugin.define({
         return (
           <Show when={links().length > 0}>
             <box width="100%" flexDirection="column" flexShrink={0} marginTop={1}>
-              <box width="100%" height={1} flexDirection="row" flexShrink={0} paddingRight={2}>
+              <box width="100%" height={1} flexDirection="row" flexShrink={0} paddingRight={1}>
                 <text fg={context.theme.text.base} flexGrow={1} flexShrink={1} minWidth={0} height={1}><b>Links</b></text>
-                <text fg={context.theme.text.base} width={1} flexShrink={0} selectable={false}
-                  onMouseOut={() => { togglePressed = false; }}
+                <text fg={toggleHovered() ? context.theme.text.base : context.theme.text.muted} width={3} flexShrink={0} selectable={false}
+                  onMouseOver={() => setToggleHovered(true)}
+                  onMouseOut={() => { setToggleHovered(false); togglePressed = false; }}
                   onMouseDown={(event) => {
                     togglePressed = event.button === 0;
                     event.preventDefault(); event.stopPropagation();
@@ -110,7 +112,7 @@ export default Plugin.define({
                     if (!activate) return;
                     clearHover();
                     setExpanded((value) => !value);
-                  }}><b>{expanded() ? "⊟" : "⊞"}</b></text>
+                  }}><b>{expanded() ? "[-]" : "[+]"}</b></text>
               </box>
               <Show when={expanded()}>
                 <box flexDirection="column" paddingLeft={2} flexShrink={0}>

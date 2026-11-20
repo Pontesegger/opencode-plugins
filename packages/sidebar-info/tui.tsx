@@ -34,6 +34,7 @@ export default Plugin.define({
         const [status, setStatus] = createSignal("Loading skills…");
         const [hoveredID, setHoveredID] = createSignal<string>();
         const [pointedID, setPointedID] = createSignal<string>();
+        const [toggleHovered, setToggleHovered] = createSignal(false);
         const [anchor, setAnchor] = createSignal({ x: 0, y: 0 });
         const [size, setSize] = createSignal({ width: context.renderer.width, height: context.renderer.height });
         const hovered = createMemo(() => skills().find((skill) => skill.id === hoveredID()));
@@ -170,10 +171,11 @@ export default Plugin.define({
 
         return (
           <box width="100%" flexDirection="column" flexShrink={0} marginTop={1}>
-            <box width="100%" height={1} flexDirection="row" flexShrink={0} paddingRight={2}>
+            <box width="100%" height={1} flexDirection="row" flexShrink={0} paddingRight={1}>
               <text fg={context.theme.text.base} flexGrow={1} flexShrink={1} minWidth={0} height={1}><b>@ {title}</b></text>
-              <text fg={context.theme.text.base} width={1} flexShrink={0} selectable={false}
-                onMouseOut={() => { togglePressed = false; }}
+              <text fg={toggleHovered() ? context.theme.text.base : context.theme.text.muted} width={3} flexShrink={0} selectable={false}
+                onMouseOver={() => setToggleHovered(true)}
+                onMouseOut={() => { setToggleHovered(false); togglePressed = false; }}
                 onMouseDown={(event) => {
                   togglePressed = event.button === 0;
                   event.preventDefault(); event.stopPropagation();
@@ -186,7 +188,7 @@ export default Plugin.define({
                   pressedID = undefined;
                   clearHover();
                   setExpanded((value) => !value);
-                }}><b>{expanded() ? "⊟" : "⊞"}</b></text>
+                }}><b>{expanded() ? "[-]" : "[+]"}</b></text>
             </box>
             <Show when={expanded()}>
               <Show when={skills().length > 0} fallback={<text fg={context.theme.text.base}>{loadingVisibility() ? "Loading skills…" : status()}</text>}>

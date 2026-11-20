@@ -339,10 +339,17 @@ try {
   }
   assert.deepEqual(savedUsage, historyBeforeAging, "Aging preserves the stored last three uses");
   assertSingleList();
-  const icon = findText(setup.renderer.root, "⊟");
-  assert.ok(icon, "Skills header starts expanded with boxed minus");
-  assert.deepEqual(icon.fg, white, "Icon matches the bright-white header");
-  assert.equal(icon.x + icon.width, 118, "Icon leaves two blank columns at the right edge");
+  const icon = findText(setup.renderer.root, "[-]");
+  assert.ok(icon, "Skills header starts expanded with an ASCII minus control");
+  assert.equal(icon.width, 3, "Control occupies three visible columns");
+  assert.deepEqual(icon.fg, muted, "Control is gray by default");
+  await setup.mockMouse.moveTo(icon.x + 1, icon.y);
+  await setup.renderOnce();
+  assert.deepEqual(icon.fg, white, "Control turns bright white on hover");
+  await setup.mockMouse.moveTo(0, 0);
+  await setup.renderOnce();
+  assert.deepEqual(icon.fg, muted, "Control returns to gray when the pointer leaves");
+  assert.equal(icon.x + icon.width, 119, "Icon leaves one blank column at the right edge");
   await setup.mockMouse.click(icon.x, icon.y, 2);
   await setup.renderOnce();
   assertSingleList();
@@ -362,7 +369,7 @@ try {
   await wait(350);
   await setup.renderOnce();
   assert.ok(findText(setup.renderer.root, "@ Skills"), "Collapse preserves the header");
-  assert.ok(findText(setup.renderer.root, "⊞"), "Collapsed header has a boxed plus");
+  assert.ok(findText(setup.renderer.root, "[+]"), "Collapsed header has an ASCII plus control");
   assert.ok(!findText(setup.renderer.root, "Alpha") && !findText(setup.renderer.root, "Builtin"), "Collapse removes all skill rows");
   assert.ok(!setup.captureCharFrame().includes("A distinctive hover description."), "Collapse dismisses hover cards and pending timers");
   assert.equal(findText(setup.renderer.root, "@ Skills").parent.parent.height, 1, "Only the header line remains");
@@ -376,15 +383,22 @@ try {
   setSidebarWidth(24);
   setup.renderer.resize(114, 30);
   await setup.renderOnce();
-  const plus = findText(setup.renderer.root, "⊞");
-  assert.equal(plus.x + plus.width, 112, "Icon remains two columns from the edge after resize");
-  await setup.mockMouse.click(plus.x, plus.y);
+  const plus = findText(setup.renderer.root, "[+]");
+  await setup.mockMouse.moveTo(0, 0);
+  await setup.renderOnce();
+  assert.deepEqual(plus.fg, muted, "Expand control is gray by default");
+  await setup.mockMouse.moveTo(plus.x + 1, plus.y);
+  await setup.renderOnce();
+  assert.deepEqual(plus.fg, white, "Expand control turns bright white on hover");
+  assert.equal(plus.width, 3, "Expand control occupies three visible columns");
+  assert.equal(plus.x + plus.width, 113, "Icon remains one column from the edge after resize");
+  await setup.mockMouse.click(plus.x + 2, plus.y);
   await setup.renderOnce();
   assertSingleList();
   assert.equal(prompt.plainText, draft, "Toggle does not modify the prompt");
   assert.equal(selectedSkills.length, selections, "Toggle does not select skills");
   assert.deepEqual(savedUsage, historyBeforeAging, "Collapse/expand preserves usage history");
-  console.log("PASS: Skills hover, insertion, visibility and usage regressions; white boxed collapse/expand icons, right padding and resize, header-only collapse, hover cleanup, live updates while collapsed.");
+  console.log("PASS: Skills hover, insertion, visibility and usage regressions; ASCII collapse/expand controls, right padding and resize, header-only collapse, hover cleanup, live updates while collapsed.");
 } finally {
   Date.now = originalNow;
   setup.renderer.destroy();

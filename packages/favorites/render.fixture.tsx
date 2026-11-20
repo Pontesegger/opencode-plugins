@@ -110,10 +110,17 @@ try {
   assert.match(warnings[1], /Unable to open the command palette/);
   const findText = (node, text) => node.plainText === text ? node
     : node.getChildren().map((child) => findText(child, text)).find(Boolean);
-  const icon = findText(setup.renderer.root, "⊟");
-  assert.ok(icon, "Expanded header has a boxed minus icon");
-  assert.deepEqual(icon.fg, RGBA.fromHex("#ffffff"), "Icon matches the bright-white header");
-  assert.equal(icon.x + icon.width, 88, "Two blank columns follow the one-cell icon");
+  const icon = findText(setup.renderer.root, "[-]");
+  assert.ok(icon, "Expanded header has an ASCII minus control");
+  assert.equal(icon.width, 3, "Control occupies three visible columns");
+  assert.deepEqual(icon.fg, RGBA.fromHex("#888888"), "Control is gray by default");
+  await setup.mockMouse.moveTo(icon.x + 1, icon.y);
+  await setup.renderOnce();
+  assert.deepEqual(icon.fg, RGBA.fromHex("#ffffff"), "Control turns bright white on hover");
+  await setup.mockMouse.moveTo(0, 10);
+  await setup.renderOnce();
+  assert.deepEqual(icon.fg, RGBA.fromHex("#888888"), "Control returns to gray when the pointer leaves");
+  assert.equal(icon.x + icon.width, 89, "One blank column follows the control");
   const heading = findText(setup.renderer.root, "Favorites");
   const originalHeight = heading.parent.parent.height;
   await setup.mockMouse.click(icon.x, icon.y, 2);
@@ -127,7 +134,7 @@ try {
   await setup.mockMouse.click(icon.x, icon.y);
   await setup.renderOnce();
   assert.ok(findText(setup.renderer.root, "Favorites"), "Collapsed header remains visible");
-  assert.ok(findText(setup.renderer.root, "⊞"), "Collapsed header has a boxed plus");
+  assert.ok(findText(setup.renderer.root, "[+]"), "Collapsed header has an ASCII plus control");
   for (const text of ["/clear", "/compact", "Show all commands"]) {
     assert.ok(!findText(setup.renderer.root, text), "Collapse removes every entry and the palette separator");
   }
@@ -137,13 +144,20 @@ try {
   setSidebarWidth(24);
   setup.renderer.resize(84, 20);
   await setup.renderOnce();
-  const plus = findText(setup.renderer.root, "⊞");
-  assert.equal(plus.x + plus.width, 82, "Icon keeps its right padding after resize");
-  await setup.mockMouse.click(plus.x, plus.y);
+  const plus = findText(setup.renderer.root, "[+]");
+  await setup.mockMouse.moveTo(0, 10);
+  await setup.renderOnce();
+  assert.deepEqual(plus.fg, RGBA.fromHex("#888888"), "Expand control is gray by default");
+  await setup.mockMouse.moveTo(plus.x + 1, plus.y);
+  await setup.renderOnce();
+  assert.deepEqual(plus.fg, RGBA.fromHex("#ffffff"), "Expand control turns bright white on hover");
+  assert.equal(plus.width, 3, "Expand control occupies three visible columns");
+  assert.equal(plus.x + plus.width, 83, "Icon keeps its right padding after resize");
+  await setup.mockMouse.click(plus.x + 2, plus.y);
   await setup.renderOnce();
   assert.ok(findText(setup.renderer.root, "/clear") && findText(setup.renderer.root, "Show all commands"), "Expand restores all entries");
   assert.equal(heading.parent.parent.height, originalHeight, "Expand restores the original section height");
-  console.log("PASS: Favorites dispatch and draft preservation; white boxed collapse/expand icons, right padding and resize, header-only collapse, restored entries, ignored right-clicks/drags.");
+  console.log("PASS: Favorites dispatch and draft preservation; ASCII collapse/expand controls, right padding and resize, header-only collapse, restored entries, ignored right-clicks/drags.");
 } finally {
   setup.renderer.destroy();
 }

@@ -20,9 +20,9 @@ The session sidebar must be visible to see the section.
 
 ## Behavior
 
-- The header's bright boxed **⊟** matches the heading text color and sits two
-  blank columns from the right edge. Left-click to collapse all link rows and
-  hover cards, leaving only the header with **⊞** to expand again. Right-clicks
+- The header's ASCII **[-]** is gray by default and bright white on hover, with
+  one blank column from the right edge. Left-click to collapse all link rows and
+  hover cards, leaving only the header with **[+]** to expand again. Right-clicks
   and drags are ignored. Links starts expanded and toggles independently of
   Favorites and Skills. Session switches, live posts, and reconnects preserve
   the collapsed state; expanding displays the latest links. Sessions with no
