@@ -8,6 +8,12 @@ Adds a **Favorites** heading to the right-hand session sidebar with these rows:
 - `/compact`
 - **Show all commands**, separated from `/compact` by one empty line.
 
+The header has a bright boxed **⊟** control, matching its text color, with two
+blank columns at the right edge. Left-click it to collapse all rows and spacing,
+leaving only the header; click **⊞** to expand again. Right-clicks and drags are
+ignored. The section starts expanded, retains its state while switching sessions,
+and toggles independently of Skills and Links without changing the prompt.
+
 Left-click **Show all commands** to open OpenCode's native command palette, the
 same action as **Ctrl+P** (`command.palette.show`). This preserves the unfinished
 prompt and attachments; it does not submit anything.

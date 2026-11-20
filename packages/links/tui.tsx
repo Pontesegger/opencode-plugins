@@ -11,6 +11,7 @@ const hoverColor = "#7dd3fc";
 export default Plugin.define({
   id: "local.links.tui",
   setup(context) {
+    const [expanded, setExpanded] = createSignal(true);
     const rpc = context.client.rpc(Links);
     return context.ui.slot({
       // Skills contributes inside sidebar.content. Render after that whole slot,
@@ -26,6 +27,7 @@ export default Plugin.define({
         const placement = createMemo(() => tooltipPlacement(anchor().x, anchor().y, size().width, size().height));
         let hoverTimer: ReturnType<typeof setTimeout> | undefined;
         let hideTimer: ReturnType<typeof setTimeout> | undefined;
+        let togglePressed = false;
         const keepOpen = () => { clearTimeout(hideTimer); hideTimer = undefined; };
         const dismiss = () => {
           keepOpen();
@@ -92,22 +94,40 @@ export default Plugin.define({
         onCleanup(() => { abort.abort(); generation++; stopUpdates(); stopReconnect(); });
         return (
           <Show when={links().length > 0}>
-            <box flexDirection="column" flexShrink={0} marginTop={1}>
-              <text fg={context.theme.text.base}><b>Links</b></text>
-              <box flexDirection="column" paddingLeft={2} flexShrink={0}>
-                <For each={links()}>{(link) => (
-                  <box width="100%" flexShrink={0}
-                    onMouseOver={(event) => beginHover(link.url, event)}
-                    onMouseOut={leaveHover} onMouseDown={dismiss} onMouseScroll={dismiss}>
-                    <text fg={pointedURL() === link.url ? hoverColor : context.theme.text.muted}
-                      attributes={pointedURL() === link.url ? TextAttributes.UNDERLINE : 0}
-                      wrapMode="word" flexShrink={0}>
-                      <a href={link.url}>{link.label}</a>
-                    </text>
-                  </box>
-                )}</For>
+            <box width="100%" flexDirection="column" flexShrink={0} marginTop={1}>
+              <box width="100%" height={1} flexDirection="row" flexShrink={0} paddingRight={2}>
+                <text fg={context.theme.text.base} flexGrow={1} flexShrink={1} minWidth={0} height={1}><b>Links</b></text>
+                <text fg={context.theme.text.base} width={1} flexShrink={0} selectable={false}
+                  onMouseOut={() => { togglePressed = false; }}
+                  onMouseDown={(event) => {
+                    togglePressed = event.button === 0;
+                    event.preventDefault(); event.stopPropagation();
+                  }}
+                  onMouseUp={(event) => {
+                    const activate = togglePressed && event.button === 0 && !event.isDragging;
+                    togglePressed = false;
+                    event.preventDefault(); event.stopPropagation();
+                    if (!activate) return;
+                    clearHover();
+                    setExpanded((value) => !value);
+                  }}><b>{expanded() ? "⊟" : "⊞"}</b></text>
               </box>
-              <Show when={hovered()}>{(link) => (
+              <Show when={expanded()}>
+                <box flexDirection="column" paddingLeft={2} flexShrink={0}>
+                  <For each={links()}>{(link) => (
+                    <box width="100%" flexShrink={0}
+                      onMouseOver={(event) => beginHover(link.url, event)}
+                      onMouseOut={leaveHover} onMouseDown={dismiss} onMouseScroll={dismiss}>
+                      <text fg={pointedURL() === link.url ? hoverColor : context.theme.text.muted}
+                        attributes={pointedURL() === link.url ? TextAttributes.UNDERLINE : 0}
+                        wrapMode="word" flexShrink={0}>
+                        <a href={link.url}>{link.label}</a>
+                      </text>
+                    </box>
+                  )}</For>
+                </box>
+              </Show>
+              <Show when={expanded() && hovered()}>{(link) => (
                 <Portal mount={context.renderer.root} ref={(container) => {
                   // Keep the portal out of layout and above the app without stealing row hover hits.
                   container.position = "absolute";

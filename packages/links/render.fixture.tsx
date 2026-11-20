@@ -6,6 +6,7 @@ import plugin from "./tui";
 
 const [sessionID, setSessionID] = createSignal("first");
 const [enabled, setEnabled] = createSignal(true);
+const [sidebarWidth, setSidebarWidth] = createSignal(36);
 const values = new Map<string, { url: string; label: string; description?: string }[]>([["first", []], ["second", [{ url: "https://other.example/", label: "Other session" }]]]);
 const listeners = new Set<(event: any) => void>();
 const reconnects = new Set<(event: any) => void>();
@@ -52,7 +53,7 @@ function HostSlot() {
 const setup = await testRender(() => (
   <box width="100%" height="100%" flexDirection="row">
     <box width={64}><text>Main transcript</text></box>
-    <box width={36} flexDirection="column">
+    <box width={sidebarWidth()} flexDirection="column">
       <text>EXISTING SIDEBAR</text>
       <text>@ Skills</text>
       <text>Example skill</text>
@@ -201,10 +202,57 @@ try {
   setEnabled(true);
   await frame();
   assert.equal(listeners.size, 1, "Reload creates one subscription, not duplicates");
+  values.set("empty", [{ url: "https://example.com/collapse", label: "Collapsible link", description: "Collapse this hover card." }]);
+  emit("empty");
+  await frame();
+  const icon = findText(setup.renderer.root, "⊟");
+  assert.ok(icon, "Links starts expanded with boxed minus");
+  assert.deepEqual(icon.fg, RGBA.fromHex("#ffffff"), "Icon matches the bright-white header");
+  assert.equal(icon.x + icon.width, 98, "Two blank columns follow the icon");
+  await setup.mockMouse.click(icon.x, icon.y, 2);
+  await frame();
+  assert.ok(findText(setup.renderer.root, "Collapsible link"), "Right-click does not collapse Links");
+  await setup.mockMouse.pressDown(icon.x, icon.y);
+  await setup.mockMouse.moveTo(0, 0);
+  await setup.mockMouse.release(0, 0);
+  await frame();
+  assert.ok(findText(setup.renderer.root, "Collapsible link"), "Dragging off the icon does not collapse");
+  const collapsible = findText(setup.renderer.root, "Collapsible link");
+  await setup.mockMouse.moveTo(collapsible.x, collapsible.y);
+  await wait(300);
+  output = await frame();
+  assert.ok(output.includes("Collapse this hover card."));
+  await setup.mockMouse.click(icon.x, icon.y);
+  await wait(300);
+  output = await frame();
+  const heading = findText(setup.renderer.root, "Links");
+  assert.ok(heading && findText(setup.renderer.root, "⊞"), "Collapsed Links keeps its header with boxed plus");
+  assert.equal(heading.parent.parent.height, 1, "Collapsed Links occupies only its header line");
+  assert.ok(!output.includes("Collapsible link") && !output.includes("Collapse this hover card."), "Collapse removes all rows and hover cards");
+  assert.equal(setup.renderer.getLinkAt(collapsible.x, collapsible.y), null, "Hidden links leave no clickable native hyperlink");
+  assert.ok(output.includes("Example skill"), "Collapsing Links does not hide the neighboring Skills section");
+  values.set("empty", [{ url: "https://example.com/updated", label: "Updated while collapsed" }]);
+  emit("empty");
+  for (const listener of reconnects) listener({ details: { type: "server.connected" } });
+  output = await frame();
+  assert.ok(!output.includes("Updated while collapsed"), "Live updates and reconnect do not expand Links");
+  setSessionID("second");
+  output = await frame();
+  assert.ok(findText(setup.renderer.root, "⊞") && !output.includes("Other session"), "Session switches preserve collapsed state");
+  setSessionID("empty");
+  await frame();
+  setSidebarWidth(30);
+  setup.renderer.resize(94, 24);
+  await frame();
+  const plus = findText(setup.renderer.root, "⊞");
+  assert.equal(plus.x + plus.width, 92, "Icon preserves its right padding after resize");
+  await setup.mockMouse.click(plus.x, plus.y);
+  output = await frame();
+  assert.ok(output.includes("Updated while collapsed"), "Expand shows the latest link data");
   setup.renderer.destroy();
   assert.equal(listeners.size, 0);
   assert.equal(reconnects.size, 0);
-  console.log("PASS: Links below Skills, no empty heading or spacing, first-post visibility, gray labels, native hyperlinks, detailed hover cards, session isolation, stale request protection, reconnect, and cleanup.");
+  console.log("PASS: Links updates, styling, hyperlinks, session isolation and cleanup; white boxed collapse/expand icons, right padding and resize, header-only collapse, hover cleanup, live updates while collapsed.");
 } finally {
   if (!setup.renderer.isDestroyed) setup.renderer.destroy();
 }

@@ -88,7 +88,10 @@ npm run test:activity-status
 This simulates mouse movement and clicks, checks hover-card visibility and
 dismissal, and verifies that clicking inserts a skill without submitting a prompt.
 The Favorites renderer test verifies one-click submission, draft replacement,
-and ignored right-clicks/drags with mocked host dispatch. GitHub Actions runs
+and ignored right-clicks/drags with mocked host dispatch. Favorites, Skills, and
+Links renderer tests also verify white boxed header controls, two-column right
+padding, header-only collapse, expansion, resize, and hover cleanup where applicable.
+GitHub Actions runs
 the Node/package checks and all six Bun renderer tests. The Context test checks
 rightmost alignment while idle/busy, with activity and standard-footer toggles,
 resizing, and click handling. The Busy Status test

@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { testRender, useRenderer } from "@opentui/solid";
 import { RGBA, type TextareaRenderable } from "@opentui/core";
 import plugin from "./tui";
+import { createSignal } from "solid-js";
 
 let prompt: TextareaRenderable;
 const actions: string[] = [];
 const warnings: string[] = [];
 let unavailable = false;
+const [sidebarWidth, setSidebarWidth] = createSignal(30);
 function Favorites() {
   let slot;
   const renderer = useRenderer();
@@ -41,7 +43,7 @@ const setup = await testRender(() => (
     <box width={60} height="100%">
       <textarea ref={(editor) => { prompt = editor; }} width={60} height={3} />
     </box>
-    <box width={30} height="100%"><Favorites /></box>
+    <box width={sidebarWidth()} height="100%"><Favorites /></box>
   </box>
 ), { width: 90, height: 20 });
 
@@ -106,7 +108,42 @@ try {
   assert.equal(prompt.plainText, "Keep this draft when the command is unavailable");
   assert.equal(warnings.length, 2);
   assert.match(warnings[1], /Unable to open the command palette/);
-  console.log("PASS: Favorites heading; clear/compact dispatch; spaced native command-palette link; palette preserves draft; focus; right-click and drag ignored; unavailable actions preserve draft and warn.");
+  const findText = (node, text) => node.plainText === text ? node
+    : node.getChildren().map((child) => findText(child, text)).find(Boolean);
+  const icon = findText(setup.renderer.root, "⊟");
+  assert.ok(icon, "Expanded header has a boxed minus icon");
+  assert.deepEqual(icon.fg, RGBA.fromHex("#ffffff"), "Icon matches the bright-white header");
+  assert.equal(icon.x + icon.width, 88, "Two blank columns follow the one-cell icon");
+  const heading = findText(setup.renderer.root, "Favorites");
+  const originalHeight = heading.parent.parent.height;
+  await setup.mockMouse.click(icon.x, icon.y, 2);
+  await setup.renderOnce();
+  assert.ok(findText(setup.renderer.root, "/clear"), "Right-click does not collapse");
+  await setup.mockMouse.pressDown(icon.x, icon.y);
+  await setup.mockMouse.moveTo(0, 10);
+  await setup.mockMouse.release(0, 10);
+  await setup.renderOnce();
+  assert.ok(findText(setup.renderer.root, "/clear"), "Dragging off the icon does not collapse");
+  await setup.mockMouse.click(icon.x, icon.y);
+  await setup.renderOnce();
+  assert.ok(findText(setup.renderer.root, "Favorites"), "Collapsed header remains visible");
+  assert.ok(findText(setup.renderer.root, "⊞"), "Collapsed header has a boxed plus");
+  for (const text of ["/clear", "/compact", "Show all commands"]) {
+    assert.ok(!findText(setup.renderer.root, text), "Collapse removes every entry and the palette separator");
+  }
+  assert.equal(heading.parent.parent.height, 1, "Collapsed section occupies only the header line");
+  assert.equal(actions.length, 3, "Toggle does not dispatch favorite commands");
+  assert.equal(prompt.plainText, "Keep this draft when the command is unavailable", "Toggle preserves the draft");
+  setSidebarWidth(24);
+  setup.renderer.resize(84, 20);
+  await setup.renderOnce();
+  const plus = findText(setup.renderer.root, "⊞");
+  assert.equal(plus.x + plus.width, 82, "Icon keeps its right padding after resize");
+  await setup.mockMouse.click(plus.x, plus.y);
+  await setup.renderOnce();
+  assert.ok(findText(setup.renderer.root, "/clear") && findText(setup.renderer.root, "Show all commands"), "Expand restores all entries");
+  assert.equal(heading.parent.parent.height, originalHeight, "Expand restores the original section height");
+  console.log("PASS: Favorites dispatch and draft preservation; white boxed collapse/expand icons, right padding and resize, header-only collapse, restored entries, ignored right-clicks/drags.");
 } finally {
   setup.renderer.destroy();
 }

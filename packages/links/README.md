@@ -20,6 +20,13 @@ The session sidebar must be visible to see the section.
 
 ## Behavior
 
+- The header's bright boxed **⊟** matches the heading text color and sits two
+  blank columns from the right edge. Left-click to collapse all link rows and
+  hover cards, leaving only the header with **⊞** to expand again. Right-clicks
+  and drags are ignored. Links starts expanded and toggles independently of
+  Favorites and Skills. Session switches, live posts, and reconnects preserve
+  the collapsed state; expanding displays the latest links. Sessions with no
+  links still hide the entire section, as before.
 - The agent receives a `links_post` tool with `url`, `label`, and optional
   `description` arguments and a
   short instruction to proactively save particularly useful links. For example:
