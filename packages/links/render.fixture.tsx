@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { testRender, useRenderer } from "@opentui/solid";
-import { RGBA } from "@opentui/core";
+import { RGBA, TextAttributes } from "@opentui/core";
 import { createSignal, onCleanup, Show } from "solid-js";
 import plugin from "./tui";
 
@@ -98,15 +98,30 @@ try {
   const label = findText(setup.renderer.root, "Plugin docs");
   assert.deepEqual(label.fg, RGBA.fromHex("#888888"), "Link labels use the theme's muted gray");
   assert.deepEqual(label.textNode.toChunks()[0].fg, RGBA.fromHex("#888888"), "Native hyperlinks inherit the gray color");
+  assert.equal(label.textNode.toChunks()[0].attributes & TextAttributes.UNDERLINE, 0, "Idle labels are not underlined");
   const column = lines[row].indexOf("Plugin docs");
   await setup.mockMouse.moveTo(column + 2, row);
+  output = await frame();
+  assert.deepEqual(label.fg, RGBA.fromHex("#7dd3fc"), "Hover immediately highlights the label in readable light blue");
+  assert.equal(label.textNode.toChunks()[0].attributes & TextAttributes.UNDERLINE, TextAttributes.UNDERLINE,
+    "Hover underlines the native hyperlink before the card opens");
+  assert.equal(setup.renderer.getLinkAt(column, row), "https://example.com/docs", "Hover styling preserves the clickable URL");
+  assert.deepEqual(findText(setup.renderer.root, "Preview").fg, RGBA.fromHex("#888888"), "Other links remain gray");
+  assert.ok(!output.includes("Detailed plugin reference."), "Highlight does not wait for the hover card");
   await wait(300);
   output = await frame();
   assert.ok(output.includes("Detailed plugin reference.") && output.includes("https://example.com/docs"), "Hover shows the description and full URL");
+  const fullURL = findText(setup.renderer.root, "https://example.com/docs");
+  assert.deepEqual(fullURL.fg, RGBA.fromHex("#7dd3fc"), "The full URL in the hover card uses the same readable light blue");
+  assert.deepEqual(fullURL.textNode.toChunks()[0].fg, RGBA.fromHex("#7dd3fc"), "The URL hyperlink inherits the blue color");
+  assert.equal(setup.renderer.getLinkAt(fullURL.x, fullURL.y), "https://example.com/docs", "The blue hover-card URL remains clickable");
   assert.ok(output.includes("Main transcript") && output.includes("EXISTING SIDEBAR"), "Hover does not change application layout");
   const details = output.split("\n");
   const detailRow = details.findIndex((line) => line.includes("Detailed plugin reference."));
   await setup.mockMouse.moveTo(details[detailRow].indexOf("Detailed plugin reference."), detailRow);
+  await frame();
+  assert.deepEqual(label.fg, RGBA.fromHex("#888888"), "Leaving the sidebar row immediately restores muted gray");
+  assert.equal(label.textNode.toChunks()[0].attributes & TextAttributes.UNDERLINE, 0, "Underline clears even while the hover card stays open");
   await wait(200);
   output = await frame();
   assert.ok(output.includes("Detailed plugin reference."), "Card remains open while the pointer is over it");
@@ -130,9 +145,12 @@ try {
   await wait(300);
   output = await frame();
   assert.ok(output.includes("https://other.example/"));
+  const secondLabel = findText(setup.renderer.root, "Other session");
   setup.renderer.emit("blur");
   output = await frame();
   assert.ok(!output.includes("https://other.example/"), "Losing terminal focus dismisses the hover card");
+  assert.deepEqual(secondLabel.fg, RGBA.fromHex("#888888"), "Losing focus also clears the blue hover highlight");
+  assert.equal(secondLabel.textNode.toChunks()[0].attributes & TextAttributes.UNDERLINE, 0);
 
   // Resolve the previous session after the current one: stale replies must not leak.
   delay = true;

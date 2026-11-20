@@ -34,9 +34,10 @@ The session sidebar must be visible to see the section.
 - Links persist in OpenCode's plugin storage across reloads and restarts. Reposting
   the same normalized URL updates its label and any supplied description in place;
   omitting the description preserves the previous one. New URLs append in order.
-- Labels use the theme's muted gray color. Hovering briefly opens a scrollable
+- Labels use the theme's muted gray color, changing immediately to light blue
+  with an underline while the pointer is over the row. Hovering briefly opens a scrollable
   card with the label, optional longer description (up to 1000 characters), and
-  full URL. Existing links without a description still show their full URL.
+  full URL in the same light blue. Existing links without a description still show their full URL.
   The card stays open while the pointer is over it and dismisses on mouse leave,
   session switching, terminal resize, or focus loss.
 - Entries use native terminal hyperlinks. Open them with your terminal's link

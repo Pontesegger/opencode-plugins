@@ -1,11 +1,12 @@
 import { Plugin } from "@opencode/plugin/tui";
 import { Portal } from "@opentui/solid";
-import type { MouseEvent } from "@opentui/core";
+import { TextAttributes, type MouseEvent } from "@opentui/core";
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import { Links } from "./rpc.ts";
 import { tooltipPlacement } from "./links.mjs";
 
 type Link = { url: string; label: string; description?: string };
+const hoverColor = "#7dd3fc";
 
 export default Plugin.define({
   id: "local.links.tui",
@@ -18,6 +19,7 @@ export default Plugin.define({
       render: (props) => {
         const [links, setLinks] = createSignal<Link[]>([]);
         const [hoveredURL, setHoveredURL] = createSignal<string>();
+        const [pointedURL, setPointedURL] = createSignal<string>();
         const [anchor, setAnchor] = createSignal({ x: 0, y: 0 });
         const [size, setSize] = createSignal({ width: context.renderer.width, height: context.renderer.height });
         const hovered = createMemo(() => links().find((link) => link.url === hoveredURL()));
@@ -32,6 +34,7 @@ export default Plugin.define({
           setHoveredURL(undefined);
         };
         const leaveHover = () => {
+          setPointedURL(undefined);
           clearTimeout(hoverTimer);
           keepOpen();
           // Allow the pointer to cross the one-cell gap into the scrollable card.
@@ -39,6 +42,7 @@ export default Plugin.define({
         };
         const beginHover = (url: string, event: MouseEvent) => {
           dismiss();
+          setPointedURL(url);
           const target = event.currentTarget;
           setAnchor({
             x: (target?.x ?? event.x) - context.renderer.root.x,
@@ -46,13 +50,14 @@ export default Plugin.define({
           });
           hoverTimer = setTimeout(() => setHoveredURL(url), 250);
         };
-        const resize = (width: number, height: number) => { dismiss(); setSize({ width, height }); };
+        const clearHover = () => { setPointedURL(undefined); dismiss(); };
+        const resize = (width: number, height: number) => { clearHover(); setSize({ width, height }); };
         context.renderer.on("resize", resize);
-        context.renderer.on("blur", dismiss);
+        context.renderer.on("blur", clearHover);
         onCleanup(() => {
-          dismiss();
+          clearHover();
           context.renderer.off("resize", resize);
-          context.renderer.off("blur", dismiss);
+          context.renderer.off("blur", clearHover);
         });
         const abort = new AbortController();
         let generation = 0;
@@ -65,7 +70,7 @@ export default Plugin.define({
               signal: abort.signal,
             });
             if (abort.signal.aborted || request !== generation) return;
-            dismiss();
+            clearHover();
             setLinks(value as Link[]);
           } catch {
             // Preserve any known links on transient failures; an empty section
@@ -80,7 +85,7 @@ export default Plugin.define({
         });
         createEffect(() => {
           props.sessionID;
-          dismiss();
+          clearHover();
           setLinks([]);
           void refresh();
         });
@@ -94,7 +99,9 @@ export default Plugin.define({
                   <box width="100%" flexShrink={0}
                     onMouseOver={(event) => beginHover(link.url, event)}
                     onMouseOut={leaveHover} onMouseDown={dismiss} onMouseScroll={dismiss}>
-                    <text fg={context.theme.text.muted} wrapMode="word" flexShrink={0}>
+                    <text fg={pointedURL() === link.url ? hoverColor : context.theme.text.muted}
+                      attributes={pointedURL() === link.url ? TextAttributes.UNDERLINE : 0}
+                      wrapMode="word" flexShrink={0}>
                       <a href={link.url}>{link.label}</a>
                     </text>
                   </box>
@@ -122,7 +129,7 @@ export default Plugin.define({
                       <Show when={link().description}>
                         <text fg={context.theme.text.muted} wrapMode="word" flexShrink={0}>{link().description}</text>
                       </Show>
-                      <text fg={context.theme.text.muted} wrapMode="word" flexShrink={0}>
+                      <text fg={hoverColor} wrapMode="word" flexShrink={0}>
                         <a href={link().url}>{link().url}</a>
                       </text>
                     </scrollbox>
