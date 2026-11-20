@@ -15,6 +15,7 @@
     "test:links": "npm run test:render --workspace=opencode-links",
     "test:activity-status": "npm run test:render --workspace=opencode-activity-status",
     "preview:busy": "bun --conditions=browser scripts/capture-busy-preview.mjs",
+    "preview:plugins": "bun --conditions=browser scripts/capture-plugin-previews.mjs",
     "check:packages": "node scripts/check-packages.mjs",
     "check": "npm test && npm run check:packages"
   }

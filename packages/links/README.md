@@ -1,5 +1,11 @@
 # Links
 
+## Preview
+
+![Links sidebar with documentation and repository hyperlinks](../../docs/images/links.png)
+
+Captured from the real plugin renderer with sample links. Terminal font rendering may vary.
+
 Session-specific, agent-posted links in the right-hand sidebar for **OpenCode V2**.
 
 ## Install

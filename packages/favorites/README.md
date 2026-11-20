@@ -1,5 +1,11 @@
 # Favorites
 
+## Preview
+
+![Favorites sidebar with clear, compact, and the command palette shortcut](../../docs/images/favorites.png)
+
+Captured from the real plugin renderer with sample session data. Terminal font rendering may vary.
+
 A TUI-only plugin for **OpenCode V2**, targeting SDK **2.2.7**.
 
 Adds a **Favorites** heading to the right-hand session sidebar with these rows:

@@ -1,5 +1,11 @@
 # Sidebar info
 
+## Preview
+
+![Skills sidebar with recent-use colors, source indicators, and a collapse control](../../docs/images/sidebar-info.png)
+
+Captured from the real plugin renderer with sample skills and usage history. Terminal font rendering may vary.
+
 OpenCode V2 TUI plugin that lists available skills in the right sidebar in one
 alphabetical list (case-insensitive display names, with ID tie-breaking), without
 grouping or a divider. Skill names indicate how many times they were used within

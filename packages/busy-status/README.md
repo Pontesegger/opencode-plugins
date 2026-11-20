@@ -1,5 +1,15 @@
 # Busy Status
 
+## Preview
+
+![Busy Status: saturated-red scanner with a fading trail between dark-red square brackets](../../docs/images/busy-status.gif)
+
+The GIF shows the real plugin renderer at its actual 90 ms/frame speed, using a
+running-session fixture. A [static screenshot](../../docs/images/busy-status.png)
+is also available. Terminal font rendering may vary.
+
+## Behavior
+
 A five-character red running light sweeps continuously back and forth across a
 dark, twelve-cell track with no text label. All five characters are centered
 rectangles (`▬`): a saturated bright-red head followed by four progressively darker trail cells.

@@ -1,5 +1,12 @@
 # Context usage and component inspector (OpenCode V2)
 
+## Preview
+
+![Context Inspector with colored component bars, category estimates, context usage, and session cost](../../docs/images/context-inspector.png)
+
+Captured from the real plugin renderer with a sample context snapshot and usage
+measurement. Terminal font rendering may vary.
+
 ## Use
 
 - The context-usage row below the prompt footer stays visible. Click **Context**

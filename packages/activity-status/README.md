@@ -1,5 +1,12 @@
 # Activity Status
 
+## Preview
+
+![Activity Status with subagent and shell counters plus an active goal hover card](../../docs/images/activity-status.png)
+
+Captured from the real plugin renderer with sample subagents, a running shell, and
+an active goal. Terminal font rendering may vary.
+
 Compact **OpenCode V2** footer indicators: `2 ⧉ · 1 ❯_ · ⚑`, matching the Skills sidebar's
 dark green (`#228B22`) and light-green hover highlighting (`#86EFAC`).
 Paused goals use yellow (`#EAB308`), with light yellow (`#FDE047`) on hover;
