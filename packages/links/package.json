@@ -1,0 +1,33 @@
+{
+  "name": "opencode-links",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Agent-posted, session-specific sidebar links for OpenCode V2.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pontesegger/opencode-plugins.git",
+    "directory": "packages/links"
+  },
+  "homepage": "https://github.com/Pontesegger/opencode-plugins/tree/main/packages/links#readme",
+  "bugs": { "url": "https://github.com/Pontesegger/opencode-plugins/issues" },
+  "keywords": ["opencode", "opencode-plugin", "sidebar", "links"],
+  "type": "module",
+  "exports": {
+    ".": "./server.ts",
+    "./tui": "./tui.tsx",
+    "./rpc": "./rpc.ts"
+  },
+  "files": ["LICENSE", "server.ts", "tui.tsx", "rpc.ts", "links.mjs"],
+  "engines": { "node": ">=26.4.0" },
+  "dependencies": { "@opencode/plugin": "2.2.7" },
+  "peerDependencies": {
+    "@opentui/core": "^0.8.4",
+    "@opentui/solid": "^0.8.4",
+    "solid-js": "^1.9.16"
+  },
+  "scripts": {
+    "test": "node --test links.test.mjs server.test.mjs",
+    "test:render": "bun --conditions=browser ./render.test.mjs"
+  }
+}

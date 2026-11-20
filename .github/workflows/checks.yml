@@ -35,3 +35,4 @@ jobs:
       - run: npm run test:hover
       - run: npm run test:favorites
       - run: npm run test:busy-status
+      - run: npm run test:links

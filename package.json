@@ -11,6 +11,7 @@
     "test:hover": "npm run test:hover --workspace=opencode-sidebar-info",
     "test:favorites": "npm run test:render --workspace=opencode-favorites",
     "test:busy-status": "npm run test:render --workspace=opencode-busy-status",
+    "test:links": "npm run test:render --workspace=opencode-links",
     "check:packages": "node scripts/check-packages.mjs",
     "check": "npm test && npm run check:packages"
   }

@@ -3,6 +3,7 @@
   // Replace this example path with the absolute path to your checkout.
   // Keep Context Inspector after other context-modifying plugins where possible.
   "plugins": [
+    "/path/to/opencode-plugins/packages/links",
     {
       "package": "/path/to/opencode-plugins/packages/context-inspector",
       "options": {

@@ -40,38 +40,43 @@ clone this GitHub repository and load local directories without npm publication.
 3. Keep the root workspace private. Remove `private: true` from **only the
    packages approved for release**, choose initial versions, and complete license
    and repository metadata. Refresh the lockfile with `npm install --ignore-scripts`.
-4. Run `npm run check`, `npm run test:hover`, `npm run test:favorites`, and
-   `npm run test:busy-status`. Review each actual tarball:
+4. Run `npm run check`, `npm run test:hover`, `npm run test:favorites`,
+   `npm run test:busy-status`, and `npm run test:links`. Review each actual tarball:
 
    ```sh
    npm pack --workspace=opencode-context-inspector
-    npm pack --workspace=opencode-sidebar-info
-     npm pack --workspace=opencode-favorites
-     npm pack --workspace=opencode-busy-status
+   npm pack --workspace=opencode-sidebar-info
+   npm pack --workspace=opencode-favorites
+   npm pack --workspace=opencode-busy-status
+   npm pack --workspace=opencode-links
    tar -tzf opencode-context-inspector-1.0.0.tgz
-    tar -tzf opencode-sidebar-info-1.0.0.tgz
-     tar -tzf opencode-favorites-1.0.0.tgz
-     tar -tzf opencode-busy-status-1.0.0.tgz
+   tar -tzf opencode-sidebar-info-1.0.0.tgz
+   tar -tzf opencode-favorites-1.0.0.tgz
+   tar -tzf opencode-busy-status-1.0.0.tgz
+   tar -tzf opencode-links-1.0.0.tgz
    ```
 
 5. Install those `.tgz` files into a separate temporary npm project and load the
    installed directories in a clean OpenCode test configuration. Test the
    **installed package**, not just the workspace-linked copy. Do not enable both
    the original and packaged versions simultaneously. Check the context hook,
-    RPC, usage row, inspector, sidebar, busy indicator, and reload cleanup.
+   RPC, usage row, inspector, sidebar, busy indicator, Links tool/session isolation,
+   and reload cleanup.
 6. Log in to npm locally using your own account. Do not put tokens in this repo.
    Publish each approved tarball individually:
 
    ```sh
    npm publish ./opencode-context-inspector-1.0.0.tgz --access public
-    npm publish ./opencode-sidebar-info-1.0.0.tgz --access public
-     npm publish ./opencode-favorites-1.0.0.tgz --access public
-     npm publish ./opencode-busy-status-1.0.0.tgz --access public
+   npm publish ./opencode-sidebar-info-1.0.0.tgz --access public
+   npm publish ./opencode-favorites-1.0.0.tgz --access public
+   npm publish ./opencode-busy-status-1.0.0.tgz --access public
+   npm publish ./opencode-links-1.0.0.tgz --access public
    ```
 
 7. Tag the release, publish GitHub release notes, and replace local-path
-   installation examples with the actual npm names and versions. Context
-    Inspector still belongs in `opencode.json(c)` and Sidebar Info/Favorites/Busy Status in `cli.json`.
+   installation examples with the actual npm names and versions. Context Inspector
+   and Links belong in `opencode.json(c)` and Sidebar Info/Favorites/Busy Status
+   in `cli.json`.
 
 Never add publication credentials to GitHub Actions until a separate publishing
 workflow and its permissions have been reviewed. Prefer npm trusted publishing
