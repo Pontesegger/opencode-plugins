@@ -56,7 +56,7 @@ export function UsageBar(props: { sessionID?: string; mode: string; onToggle: ()
                   ? "? · compacting"
                   : "awaiting usage"}
         </text>
-        <text fg={context.theme.text.muted}>{` (${formatCost(cost())})`}</text>
+        <text fg="#7dd3fc">{` (${formatCost(cost())})`}</text>
       </box>
     </Show>
   );
