@@ -1,13 +1,17 @@
 # Busy Status
 
-A three-character red running light sweeps continuously back and forth across a
-dark, twelve-cell track with no text label. All three characters are lower-half
-blocks (`▄`): a bright red head, a darker red block behind it, and a very dark red tail.
-The bright head travels one cell per frame all the way to each edge. The two
-darker shades mark its previous two positions, rather than flipping the whole
-shape when reversing. Immediately after each turnaround, the oldest trail cell
-briefly overlaps the head, so two blocks are visible for that frame; the bright
-head always stays on top. This avoids an edge jump while keeping the light inside
+A five-character red running light sweeps continuously back and forth across a
+dark, twelve-cell track with no text label. All five characters are centered
+rectangles (`▬`): a saturated bright-red head followed by four progressively darker trail cells.
+Exact vertical alignment depends on the terminal font.
+Dark-red square brackets (`[` and `]`, `#801010`) fence the track. The twelve-cell
+running light and existing outer padding are unchanged; the whole widget occupies
+sixteen columns, exactly two more than the unbracketed version.
+The bright head travels one cell per frame all the way to each edge. The four
+darker shades mark its previous four positions, rather than flipping the whole
+shape when reversing. After each turnaround, older trail cells briefly overlap
+more recent positions, so three or four blocks are visible instead of five; newer shades
+always stay on top. This avoids an edge jump while keeping the light inside
 the track throughout the sweep.
 It lives in the current session's prompt status row, with a fixed width so the
 animation never shifts nearby text. The entire indicator disappears when the
@@ -34,8 +38,8 @@ Configuration reloads automatically; `/reload` forces a refresh. No server
 plugin or credentials are required. Tested against the OpenCode **2.2.7** API.
 
 The scanner intentionally animates independently of the global `animations`
-setting. Its bright red head (`#ff3030`), darker red middle (`#a81414`), and very
-dark red tail (`#480909`) move on a dark red track (`#200508`). The light reverses
+setting. Its fully saturated bright-red head (`#ff0000`) fades through `#cc0000`,
+`#880000`, `#500000`, and a faint final tail (`#300000`) on a dark red track (`#200508`). The light reverses
 at each end without blank frames or pauses. It advances one cell every 90ms. Its animation
 timer exists only while visible and is cleaned up on idle, session switching,
 plugin disable/reload, or UI disposal. Existing status contributions are preserved.
@@ -68,6 +72,6 @@ npm run test:busy-status
 ```
 
 The renderer test requires Bun. For a live smoke test, send a prompt with a tool
-call, verify the three-block light sweeps both ways while working and disappears after the final
+call, verify the five-block light sweeps both ways while working and disappears after the final
 response, then repeat with cancellation and a session switch. Reload during a
 running turn and confirm there is only one indicator.

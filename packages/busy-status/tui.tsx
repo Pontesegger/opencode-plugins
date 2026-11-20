@@ -1,6 +1,6 @@
 import { Plugin } from "@opencode/plugin/tui";
 import { createRenderEffect, createRoot, createSignal, For, onCleanup, Show, untrack } from "solid-js";
-import { colors, trackBackground, width, frames, startScanner } from "./scanner.mjs";
+import { colors, trackBackground, bracketColor, width, frames, startScanner } from "./scanner.mjs";
 
 const cells = Array.from({ length: width }, (_, index) => index);
 
@@ -9,11 +9,13 @@ function BusyIndicator() {
   onCleanup(startScanner(setFrame));
   return (
     <box flexDirection="row" backgroundColor={trackBackground} paddingLeft={1} paddingRight={1} flexShrink={0}>
+      <text fg={bracketColor} bg={trackBackground} width={1} flexShrink={0} selectable={false}>[</text>
       <For each={cells}>{(index) => (
         <text fg={colors[frame()[index]] ?? colors["█"]} bg={trackBackground} width={1} flexShrink={0} selectable={false}>
-          {frame()[index] === " " ? " " : "▄"}
+          {frame()[index] === " " ? " " : "▬"}
         </text>
       )}</For>
+      <text fg={bracketColor} bg={trackBackground} width={1} flexShrink={0} selectable={false}>]</text>
     </box>
   );
 }

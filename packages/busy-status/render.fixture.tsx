@@ -4,7 +4,7 @@ import { RGBA } from "@opentui/core";
 import { createSignal, onCleanup, Show } from "solid-js";
 import { createStore } from "solid-js/store";
 import plugin from "./tui";
-import { colors, trackBackground, frames, stepInterval } from "./scanner.mjs";
+import { colors, trackBackground, bracketColor, width, frames, stepInterval } from "./scanner.mjs";
 
 const [statuses, setStatus] = createStore<Record<string, "idle" | "running">>({ first: "running", second: "idle" });
 const [sessionID, setSessionID] = createSignal<string | undefined>("first");
@@ -80,7 +80,11 @@ async function checkBusy(expected: boolean) {
   assert.equal(output.includes("BUSY"), false, "No BUSY label is rendered");
   assert.equal(output.includes("●"), false, "No round dot is rendered");
   assert.equal(output.includes("█"), false, "No full-height block is rendered");
-  assert.equal(output.includes("▄"), expected);
+  assert.equal(output.includes("▬"), expected);
+  assert.equal(output.includes("■"), false, "Scanner uses the preferred centered rectangle rather than squares");
+  assert.equal(output.includes("▄"), false, "Scanner no longer uses bottom-aligned half blocks");
+  assert.equal(output.includes("["), expected, "Opening bracket is visible only while busy");
+  assert.equal(output.includes("]"), expected, "Closing bracket is visible only while busy");
   assert.equal(timers.size, expected ? 1 : 0, "Exactly one timer when busy; none when idle");
   return output;
 }
@@ -89,20 +93,28 @@ try {
   function checkFrame(frame: string) {
     const spans = setup.captureSpans().lines.flatMap((line) => line.spans).filter((span) =>
       JSON.stringify(span.bg) === JSON.stringify(RGBA.fromHex(trackBackground)));
-    assert.equal(spans.map((span) => span.text).join(""), ` ${frame.replace(/[░▓█]/g, "▄")} `,
-      "Head and trail render as lower-half blocks on a stable track");
-    assert.equal(spans.reduce((sum, span) => sum + span.width, 0), 14, "Twelve-cell track plus padding");
-    const blocks = spans.filter((span) => span.text.includes("▄"));
+    assert.equal(spans.map((span) => span.text).join(""), ` [${frame.replace(/[·░▒▓█]/g, "▬")}] `,
+      "Square brackets fence the centered-rectangle scanner track");
+    assert.equal(frame.length, 12, "The running light still travels across twelve cells");
+    assert.equal(spans.reduce((sum, span) => sum + span.width, 0), width + 4, "Brackets add exactly two columns to the track plus padding");
+    const brackets = spans.filter((span) => /[\[\]]/.test(span.text));
+    assert.equal(brackets.length, 2, "Both square brackets remain visible through every animation frame");
+    for (const bracket of brackets) {
+      assert.deepEqual(bracket.fg, RGBA.fromHex(bracketColor), "Brackets use the dark-red color");
+      assert.equal(bracket.width, 1, "Each bracket occupies exactly one column");
+    }
+    const blocks = spans.filter((span) => span.text.includes("▬"));
+    assert.ok(blocks.length >= 3 && blocks.length <= 5, "Head and four fading trail cells stay visible except for reversal overlaps");
     assert.equal(blocks.length, frame.trim().length, "Trail can overlap the bright head when reversing; never blank");
     for (const [index, shade] of [...frame.trim()].entries()) {
       assert.deepEqual(blocks[index].fg, RGBA.fromHex(colors[shade]), "Tail colors follow the head in either direction");
-      assert.equal(blocks[index].text.trim(), "▄");
+      assert.equal(blocks[index].text.trim(), "▬");
     }
   }
   await checkBusy(true);
   checkFrame(frames[0]);
   // Verify a complete rendered round trip, both turnarounds, and the next loop.
-  let previousHeadColumn = setup.captureCharFrame().indexOf("▄"); // Initial head is at the left edge.
+  let previousHeadColumn = setup.captureCharFrame().indexOf("▬"); // Initial head is at the left edge.
   for (let index = 1; index <= frames.length; index++) {
     assert.equal(advance(), 90);
     const current = frames[index % frames.length];
@@ -112,8 +124,8 @@ try {
     let column = 0;
     let headColumn = -1;
     for (const span of spans) {
-      if (span.text.includes("▄") && JSON.stringify(span.fg) === JSON.stringify(RGBA.fromHex(colors["█"]))) {
-        headColumn = column + span.text.indexOf("▄");
+      if (span.text.includes("▬") && JSON.stringify(span.fg) === JSON.stringify(RGBA.fromHex(colors["█"]))) {
+        headColumn = column + span.text.indexOf("▬");
       }
       column += span.width;
     }
@@ -242,7 +254,7 @@ try {
   assert.deepEqual(errors, [{ message: "Unable to save status bar preference", variant: "error" }]);
   stop();
   assert.equal(definitions.size, 1);
-  console.log("PASS: scanner animation and cleanup; hidden-by-default status bar; /statusbar toggle; stable plugin registration; durable preferences, cross-client updates, and save failures.");
+  console.log("PASS: dark-red square brackets add two columns around the unchanged twelve-cell scanner; animation and cleanup; hidden-by-default status bar; /statusbar toggle; stable plugin registration; durable preferences, cross-client updates, and save failures.");
 } finally {
   if (!setup.renderer.isDestroyed) setup.renderer.destroy();
   globalThis.setTimeout = originalSet;

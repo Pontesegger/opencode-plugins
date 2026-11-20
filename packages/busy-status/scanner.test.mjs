@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { frames, stepInterval, startScanner } from "./scanner.mjs";
+import { colors, frames, stepInterval, startScanner } from "./scanner.mjs";
 
 function fakeClock() {
   const active = new Map();
@@ -33,19 +33,31 @@ test("the bright head moves one cell per frame through both edges without jumpin
   }
 });
 
-test("darker cells follow the head's actual history rather than flipping the whole shape", () => {
+test("four fading trail cells follow the head's actual history through both reversals", () => {
+  const shades = ["█", "▓", "▒", "░", "·"];
   for (const [index, frame] of frames.entries()) {
-    const previous = frames[(index - 1 + frames.length) % frames.length].indexOf("█");
-    const oldest = frames[(index - 2 + frames.length) % frames.length].indexOf("█");
-    const head = frame.indexOf("█");
-    assert.equal(frame.indexOf("▓"), previous, "Middle shade follows the previous head position");
-    if (oldest === head) {
-      assert.equal(frame.indexOf("░"), -1, "Head wins when it overlaps the oldest trail at a turnaround");
-      assert.equal(frame.trim().length, 2);
-    } else {
-      assert.equal(frame.indexOf("░"), oldest, "Darkest shade follows the head from two frames ago");
-      assert.equal(frame.trim().length, 3);
+    const history = shades.map((_, age) => frames[(index - age + frames.length) % frames.length].indexOf("█"));
+    for (const [age, shade] of shades.entries()) {
+      const position = history[age];
+      assert.equal(frame.indexOf(shade), history.indexOf(position) === age ? position : -1,
+        "More recent shades win when the fading trail overlaps at a reversal");
     }
+    assert.equal(frame.trim().length, new Set(history).size, "Only distinct head/trail positions are painted");
+    assert.ok(frame.trim().length >= 3 && frame.trim().length <= 5, "Three to five cells remain visible, including at turnarounds");
+  }
+  assert.equal(frames[5].trim().length, 5, "Away from reversals, the head has four additional trail cells");
+});
+
+test("all five saturated-red scanner shades fade progressively to the darkest trail", () => {
+  const shades = ["█", "▓", "▒", "░", "·"].map((shade) => {
+    const hex = colors[shade].slice(1);
+    return [0, 2, 4].map((offset) => parseInt(hex.slice(offset, offset + 2), 16));
+  });
+  assert.equal(colors["█"], "#ff0000", "Head uses full-intensity saturated red");
+  assert.ok(shades.every(([, green, blue]) => green === 0 && blue === 0), "Every scanner shade retains pure-red saturation");
+  for (let index = 1; index < shades.length; index++) {
+    assert.ok(shades[index][0] < shades[index - 1][0], "Each trail cell has a darker red channel");
+    assert.ok(shades[index].every((channel, offset) => channel <= shades[index - 1][offset]), "No color channel brightens along the trail");
   }
 });
 
