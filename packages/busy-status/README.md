@@ -40,6 +40,26 @@ at each end without blank frames or pauses. It advances one cell every 90ms. Its
 timer exists only while visible and is cleaned up on idle, session switching,
 plugin disable/reload, or UI disposal. Existing status contributions are preserved.
 
+## Standard status bar
+
+The standard session status bar is **hidden by default**. Run `/statusbar` to
+show it, then run `/statusbar` again to hide it. The command palette offers
+**Show standard status bar** or **Hide standard status bar**, matching the
+current state. The choice is stored durably and survives plugin reloads and
+client restarts; it also synchronizes across running clients.
+
+Hiding the bar replaces only the session's built-in prompt footer. The scanner
+and Activity Status live outside that boundary permanently, so they remain
+visible without remounting when the bar is toggled. Their animation, hover, and
+goal state are independent of the standard bar's visibility and plugin order.
+Plugins placed before/after `prompt.footer` remain
+visible; prepend/append contributions and plugins inside `prompt.footer.status`
+or `prompt.footer.file` are hidden with the built-in row.
+The home screen is unchanged.
+
+This replaces the temporary `/footertrial` prototype. No changes to `cli.json`
+are needed; the preference belongs to Busy Status's plugin storage.
+
 ## Verify
 
 ```sh

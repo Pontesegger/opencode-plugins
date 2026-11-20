@@ -12,6 +12,7 @@
     "test:favorites": "npm run test:render --workspace=opencode-favorites",
     "test:busy-status": "npm run test:render --workspace=opencode-busy-status",
     "test:links": "npm run test:render --workspace=opencode-links",
+    "test:activity-status": "npm run test:render --workspace=opencode-activity-status",
     "check:packages": "node scripts/check-packages.mjs",
     "check": "npm test && npm run check:packages"
   }

@@ -12,7 +12,7 @@ const run = (command, args, cwd) => execFileSync(command, args, {
 });
 
 try {
-  for (const directory of ["context-inspector", "sidebar-info", "favorites", "busy-status", "links"]) {
+  for (const directory of ["context-inspector", "sidebar-info", "favorites", "busy-status", "links", "activity-status"]) {
     const source = join(root, "packages", directory);
     const manifest = JSON.parse(readFileSync(join(source, "package.json"), "utf8"));
     const [packed] = JSON.parse(run("npm", ["pack", "--json", "--ignore-scripts", "--pack-destination", temporary], source));

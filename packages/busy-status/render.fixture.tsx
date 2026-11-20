@@ -13,6 +13,9 @@ const timers = new Map<object, { tick: () => void; delay: number }>();
 const originalSet = globalThis.setTimeout;
 const originalClear = globalThis.clearTimeout;
 let unregisters = 0;
+// A previously saved visible-bar preference exercises the original scanner row.
+const [settings, updateSettings] = createStore({ hidden: false });
+const definitions = new Set<any>();
 
 // Advance only the plugin's animation manually; leave renderer timers untouched.
 globalThis.setTimeout = ((callback, delay, ...args) => {
@@ -37,13 +40,28 @@ function advance() {
 function HostSlot() {
   let slot;
   const unregister = plugin.setup({
+    storage: { store: (key, { initial }) => {
+      assert.equal(key, "status-bar");
+      assert.deepEqual(initial, { hidden: true });
+      return [settings, async (update) => updateSettings("hidden", (hidden) => {
+        const draft = { hidden };
+        update(draft);
+        return draft.hidden;
+      })];
+    } },
+    keymap: { layer: (factory) => {
+      const layer = factory();
+      assert.equal(layer.mode, "global", "Status bar command must be active in the real command palette");
+      assert.equal(layer.commands[0].slash.name, "statusbar");
+    } },
     data: { session: { status: (id) => statuses[id] ?? "idle" } },
-    ui: { slot: (definition) => {
-      assert.equal(definition.prepend, "prompt.footer.status");
-      slot = definition;
-      return () => { unregisters++; };
+    ui: { toast: { show: () => {} }, slot: (definition) => {
+      definitions.add(definition);
+      if (definition.prepend || definition.before) slot = definition;
+      return () => { definitions.delete(definition); unregisters++; };
     } },
   });
+  assert.equal(slot.before, "prompt.footer");
   onCleanup(unregister);
   return slot.render({ get sessionID() { return sessionID(); }, mode: "normal", showDetails: false });
 }
@@ -139,7 +157,92 @@ try {
   setup.renderer.destroy();
   assert.equal(timers.size, 0, "Renderer disposal clears the animation");
   assert.equal(unregisters, 2);
-  console.log("PASS: bright half-block head moves one cell at every step and turnaround; history-based fading trail; twelve-cell track; 90ms frames; no pauses; idle/session transitions and cleanup.");
+  assert.equal(definitions.size, 0);
+  // Exercise durable preferences and the actual command/slot lifecycle.
+  const activity = { before: "prompt.footer", render: () => null };
+  definitions.add(activity);
+  let persisted: { hidden: boolean } | undefined;
+  let preference;
+  let changePreference;
+  let layerFactory;
+  let indicatorRegistrations = 0;
+  let expectedIndicatorRegistrations = 0;
+  let failSave = false;
+  const errors: any[] = [];
+  const context = {
+    storage: { store: (key, { initial }) => {
+      assert.equal(key, "status-bar");
+      assert.deepEqual(initial, { hidden: true });
+      [preference, changePreference] = createStore(persisted ?? initial);
+      return [preference, async (update) => {
+        if (failSave) throw Error("Storage unavailable");
+        const draft = { ...preference };
+        update(draft);
+        persisted = { ...draft };
+        changePreference(draft);
+      }];
+    } },
+    keymap: { layer: (factory) => {
+      const layer = factory();
+      assert.equal(layer.mode, "global");
+      assert.equal(layer.commands[0].slash.name, "statusbar");
+      assert.ok(layer.commands[0].palette);
+      layerFactory = factory;
+    } },
+    data: { session: { status: () => "idle" } },
+    ui: { toast: { show: (error) => errors.push(error) }, slot: (definition) => {
+      definitions.add(definition);
+      if (definition.before) indicatorRegistrations++;
+      return () => { definitions.delete(definition); };
+    } },
+  };
+  const assertPlacement = (hidden: boolean) => {
+    assert.equal(preference.hidden, hidden);
+    const own = [...definitions].filter((definition) => definition !== activity);
+    assert.equal(own.length, hidden ? 2 : 1);
+    assert.equal(own.filter((definition) => definition.before === "prompt.footer").length, 1);
+    assert.equal(indicatorRegistrations, expectedIndicatorRegistrations, "Toggles never remount the scanner or duplicate its registration");
+    const replacement = own.find((definition) => definition.replace);
+    assert.equal(!!replacement, hidden);
+    if (replacement) {
+      assert.equal(replacement.replace, "prompt.footer");
+      assert.equal(replacement.render(), null);
+    }
+    assert.ok(definitions.has(activity), "Sibling activity contribution remains registered");
+    assert.equal(activity.before, "prompt.footer", "Activity always remains outside the replaceable boundary");
+    assert.equal(layerFactory().commands[0].title, hidden ? "Show standard status bar" : "Hide standard status bar");
+    assert.ok(own.every((definition) => !Object.values(definition).includes("home.footer")));
+  };
+  const toggleStatusBar = () => layerFactory().commands[0].run();
+  let stop = plugin.setup(context);
+  expectedIndicatorRegistrations++;
+  assertPlacement(true);
+  await toggleStatusBar();
+  assertPlacement(false);
+  assert.deepEqual(persisted, { hidden: false });
+  stop();
+  assert.equal(definitions.size, 1, "Cleanup removes only this plugin's slots");
+  stop = plugin.setup(context);
+  expectedIndicatorRegistrations++;
+  assertPlacement(false); // A fresh store restores the saved visible preference.
+  await toggleStatusBar();
+  assertPlacement(true);
+  stop();
+  stop = plugin.setup(context);
+  expectedIndicatorRegistrations++;
+  assertPlacement(true); // The hidden preference survives client recreation too.
+  persisted = { hidden: false };
+  changePreference(persisted);
+  assertPlacement(false); // Another client's saved preference is observed.
+  await toggleStatusBar();
+  assertPlacement(true);
+  failSave = true;
+  await toggleStatusBar();
+  assertPlacement(true);
+  assert.deepEqual(errors, [{ message: "Unable to save status bar preference", variant: "error" }]);
+  stop();
+  assert.equal(definitions.size, 1);
+  console.log("PASS: scanner animation and cleanup; hidden-by-default status bar; /statusbar toggle; stable plugin registration; durable preferences, cross-client updates, and save failures.");
 } finally {
   if (!setup.renderer.isDestroyed) setup.renderer.destroy();
   globalThis.setTimeout = originalSet;
