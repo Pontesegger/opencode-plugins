@@ -5,16 +5,24 @@ import { createSignal, onCleanup, Show } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 import plugin from "./tui";
 import { skillUsageColor } from "../sidebar-info/skills.mjs";
+import { UsageBar } from "../context-inspector/usage-bar";
 
 const location = { directory: "/test/project" };
 const [route, setRoute] = createSignal<any>({ type: "session", sessionID: "main" });
 const [mode, setMode] = createSignal("normal");
 const [mounted, setMounted] = createSignal(true);
+const [contextVisible, setContextVisible] = createSignal(true);
+const [busyVisible, setBusyVisible] = createSignal(true);
 const [statuses, setStatuses] = createStore({ child: "running", idle: "idle" });
-const sessions = {
+const baseFamily = ["main", "child", "idle", "unrelated"];
+const [family, setFamily] = createSignal(baseFamily);
+const sessions: Record<string, any> = {
   main: { id: "main", location }, child: { id: "child", parentID: "main", title: "Research worker", location },
   idle: { id: "idle", parentID: "main", title: "Finished worker", location },
   unrelated: { id: "unrelated", location },
+  ...Object.fromEntries(Array.from({ length: 9 }, (_, index) => [`extra-${index}`, {
+    id: `extra-${index}`, parentID: "main", title: `Extra worker ${index}`, location,
+  }])),
 };
 const shell = { id: "shell", status: "running", command: "npm run build", cwd: location.directory, metadata: { sessionID: "main" }, time: { started: 1 } };
 const [shells, setShells] = createSignal<any[]>([shell]);
@@ -61,7 +69,7 @@ function Host() {
     theme: { text: { base: "#ffffff", muted: "#888888" }, border: { base: "#888888" }, background: { raised: { base: "#222222" } } },
     data: {
       on: (name, callback) => { assert.equal(name, "server.connected"); reconnectListeners.add(callback); return () => { reconnectListeners.delete(callback); }; },
-      session: { get: (id) => sessions[id], family: () => ["main", "child", "idle", "unrelated"], status: (id) => statuses[id] ?? "idle" },
+       session: { get: (id) => sessions[id], family, status: (id) => id.startsWith("extra-") ? "running" : statuses[id] ?? "idle" },
       shell: { list: () => shells(), sync: async () => {} }, location: { default: () => location },
     },
     client: {
@@ -109,9 +117,9 @@ function Host() {
         <text>{route().sessionID === "child" ? "CHILD WORK AND TRANSCRIPT" : "MAIN TRANSCRIPT"}</text>
         <box flexGrow={1} />
         <box flexDirection="row" height={1} gap={2}>
-          <text>BUSY</text>
+           <Show when={busyVisible()}><text flexShrink={0}>BUSY</text></Show>
           {slot.render({ get sessionID() { return route().sessionID; }, get mode() { return mode(); }, showDetails: true })}
-          <text>Context [custom]</text>
+           <Show when={contextVisible()}><UsageBar sessionID={route().sessionID} mode={mode()} onToggle={() => {}} /></Show>
         </box>
       </box>
     </Show>
@@ -147,10 +155,78 @@ try {
   assert.equal(slot.before, "prompt.footer", "Activity always lives outside the replaceable standard footer");
   await setup.renderOnce();
   let frame = setup.captureCharFrame();
-  const footer = frame.split("\n").find((line) => line.includes("Context [custom]"));
-  assert.ok(footer.includes("BUSY") && footer.includes("1 ⧉ 1 ❯_"));
+  const footer = frame.split("\n").find((line) => line.includes("Context"));
+  assert.ok(footer.includes("BUSY") && footer.includes("1 ⧉ · 1 ❯_"));
   assert.ok(footer.indexOf("1 ❯_") < footer.indexOf("Context"), "Counters directly precede custom context on one row");
   const findNode = (node, text) => node.plainText === text ? node : node.getChildren().map((child) => findNode(child, text)).find(Boolean);
+  const findGroup = (node) => node.id === "local.activity-status.indicators" ? node
+    : node.getChildren().map(findGroup).find(Boolean);
+  const assertRightAligned = (last = "1 ❯_") => {
+    const group = findGroup(setup.renderer.root);
+    assert.ok(group, "Activity always reserves its fixed slots");
+    assert.equal(group.width, 14, "Three slots and their middle-dot separators always occupy fourteen columns");
+    if (last) {
+      const lastNode = findNode(setup.renderer.root, last);
+      assert.ok(lastNode, "Expected indicator is visible");
+      assert.equal(lastNode.x - group.x, last.includes("⧉") ? 0 : last.includes("❯_") ? 6 : 13,
+        "Each indicator retains its assigned column");
+    }
+    if (contextVisible()) {
+      const contextLabel = findNode(setup.renderer.root, "Context");
+      assert.equal(contextLabel.x - (group.x + group.width), 3,
+        "Activity ends immediately left of Context, with the row gap and Context padding only");
+      const cost = findNode(setup.renderer.root, " ($1.23)");
+      assert.equal(cost.x + cost.width, setup.renderer.width, "Context remains rightmost");
+    } else {
+      assert.equal(group.x + group.width, setup.renderer.width, "Without Context, Activity ends at the right edge");
+    }
+  };
+  assertRightAligned();
+  setContextVisible(false); await setup.renderOnce(); assertRightAligned();
+  setBusyVisible(false); await setup.renderOnce(); assertRightAligned();
+  setContextVisible(true); await setup.renderOnce(); assertRightAligned();
+  setBusyVisible(true); await setup.renderOnce(); assertRightAligned();
+  const originalGroupX = findGroup(setup.renderer.root).x;
+  const originalContextX = find("Context").x;
+  for (const hasSub of [false, true]) {
+    for (const hasShell of [false, true]) {
+      for (const hasGoal of [false, true]) {
+        setStatuses("child", hasSub ? "running" : "idle");
+        setShells(hasShell ? [shell] : []);
+        goalChanged(hasGoal ? exampleGoal : null);
+        await setup.renderOnce();
+        assertRightAligned(hasGoal ? "⚑" : hasShell ? "1 ❯_" : hasSub ? "1 ⧉" : "");
+        const group = findGroup(setup.renderer.root);
+        assert.equal(group.x, originalGroupX, "Showing/hiding any indicator never moves the group");
+        assert.equal(find("Context").x, originalContextX, "Showing/hiding any indicator never moves Context");
+        const row = setup.captureCharFrame().split("\n")[group.y];
+        assert.equal(row.slice(group.x, group.x + 14),
+          `${hasSub ? "1 ⧉" : "   "}${hasSub && hasShell ? " · " : "   "}${hasShell ? "1 ❯_" : "    "}${hasShell && hasGoal ? " · " : "   "}${hasGoal ? "⚑" : " "}`,
+          "Indicators keep their slots; each dot is visible only when both adjacent indicators are visible");
+        if (!hasSub && !hasShell && !hasGoal) {
+          await setup.mockMouse.moveTo(group.x, group.y);
+          await setup.mockMouse.click(group.x + 6, group.y);
+          await wait(320); await setup.renderOnce();
+          assert.ok(!setup.captureCharFrame().includes("Subagents ·") && !setup.captureCharFrame().includes("Shells ·"), "Blank slots are not interactive");
+        }
+      }
+    }
+  }
+  for (const count of [9, 10, 11]) {
+    // Ten descendant workers are sufficient to test the subagent X threshold;
+    // eleven shells separately verify that larger totals still use one cell.
+    setFamily([...baseFamily, ...Array.from({ length: Math.min(count, 10) - 1 }, (_, index) => `extra-${index}`)]);
+    setShells(Array.from({ length: count }, (_, index) => ({ ...shell, id: `shell-${index}` })));
+    await setup.renderOnce();
+    const label = count > 9 ? "X" : "9";
+    assertRightAligned(`${label} ❯_`);
+    const group = findGroup(setup.renderer.root);
+    const row = setup.captureCharFrame().split("\n")[group.y];
+    assert.equal(row.slice(group.x, group.x + 14), `${label} ⧉ · ${label} ❯_ · ⚑`);
+    assert.equal(group.x, originalGroupX, "Multi-digit totals do not move any indicator");
+  }
+  setFamily(baseFamily); setStatuses("child", "running"); setShells([shell]); goalChanged(null);
+  await setup.renderOnce();
   assert.deepEqual(findNode(setup.renderer.root, "1 ⧉").fg, RGBA.fromHex("#228B22"), "Subagent counter uses Skills sidebar dark green normally");
   assert.deepEqual(findNode(setup.renderer.root, "1 ❯_").fg, RGBA.fromHex("#228B22"), "Shell counter uses Skills sidebar dark green normally");
   assert.deepEqual(findNode(setup.renderer.root, "1 ⧉").fg, RGBA.fromHex(skillUsageColor(1, {})), "Normal palette matches the Skills plugin");
@@ -166,7 +242,7 @@ try {
   await click("Research worker");
   assert.equal(route().sessionID, "child");
   assert.ok(setup.captureCharFrame().includes("CHILD WORK AND TRANSCRIPT"));
-  assert.ok(setup.captureCharFrame().includes("Context [custom]"), "Native child route retains other plugins, including context");
+  assert.ok(setup.captureCharFrame().includes("Context"), "Native child route retains other plugins, including context");
   await escape(); assert.equal(route().sessionID, "main"); assert.equal(interrupted, 0, "Esc returns without interrupting work");
   await hover("1 ⧉");
   const card = find("Research worker");
@@ -190,9 +266,10 @@ try {
   setStatuses("child", "idle"); setShells([{ ...shell, status: "exited" }]);
   await setup.renderOnce();
   assert.ok(!setup.captureCharFrame().includes("⧉") && !setup.captureCharFrame().includes("❯_"), "Both zero counters disappear, even with completed subagents");
-  assert.equal(find("Context [custom]").x, 6, "No empty counter container or extra gap remains between BUSY and Context");
+  assert.equal(findNode(setup.renderer.root, " ($1.23)").x + findNode(setup.renderer.root, " ($1.23)").width, 100, "Context stays right-aligned when every activity slot is blank");
   setShells([shell]); await setup.renderOnce();
   assert.ok(setup.captureCharFrame().includes("1 ❯_") && !setup.captureCharFrame().includes("⧉"), "Shell-only activity shows only its counter");
+  assertRightAligned();
   await hover("1 ❯_");
   assert.ok(setup.captureCharFrame().includes("npm run build"));
   setShells([]); await setup.renderOnce();
@@ -204,18 +281,20 @@ try {
   assert.ok(!setup.captureCharFrame().includes("Shells ·"), "A disappearing counter also cancels a pending hover");
   setStatuses("child", "running"); await setup.renderOnce();
   assert.ok(setup.captureCharFrame().includes("1 ⧉") && !setup.captureCharFrame().includes("❯_"), "Subagent-only activity shows only its counter");
+  assertRightAligned("1 ⧉");
   await hover("1 ⧉");
   setStatuses("child", "idle"); await setup.renderOnce();
   assert.ok(!setup.captureCharFrame().includes("Research worker"), "The last worker becoming idle dismisses its open hover");
   setStatuses("child", "running"); setShells([shell]); await setup.renderOnce();
-  assert.ok(setup.captureCharFrame().includes("1 ⧉ 1 ❯_"), "Both indicators reappear when activity resumes");
+  assert.ok(setup.captureCharFrame().includes("1 ⧉ · 1 ❯_"), "Both indicators reappear when activity resumes");
   await hover("1 ⧉");
-  setup.renderer.resize(50, 12); await wait(50); await setup.renderOnce();
+  setup.renderer.resize(80, 12); await wait(50); await setup.renderOnce();
+  assertRightAligned();
   assert.ok(!setup.captureCharFrame().includes("Research worker"), "Resize dismisses stale hover anchors");
   await hover("1 ⧉");
   const narrowFrame = setup.captureCharFrame();
   assert.ok(narrowFrame.includes("Research worker"), "Hover is still accessible after resizing");
-  assert.equal(narrowFrame.split("\n").filter((line) => line.includes("1 ⧉ 1 ❯_")).length, 1, "Counters remain on one row");
+  assert.equal(narrowFrame.split("\n").filter((line) => line.includes("1 ⧉ · 1 ❯_")).length, 1, "Counters remain on one row");
   setup.renderer.emit("blur"); await setup.renderOnce();
   assert.ok(!setup.captureCharFrame().includes("Research worker"), "Blur dismisses the card");
   setup.renderer.resize(100, 24); await wait(50); await setup.renderOnce();
@@ -223,6 +302,12 @@ try {
   goalChanged(exampleGoal); await setup.renderOnce();
   phase = "goal-only preview";
   assert.ok(setup.captureCharFrame().includes("⚑") && !setup.captureCharFrame().includes("⧉") && !setup.captureCharFrame().includes("❯_"), "Goal-only activity has its own visibility");
+  assertRightAligned("⚑");
+  setStatuses("child", "running"); setShells([shell]); await setup.renderOnce();
+  assertRightAligned("⚑");
+  setContextVisible(false); await setup.renderOnce(); assertRightAligned("⚑");
+  setContextVisible(true); setStatuses("child", "idle"); setShells([]); await setup.renderOnce();
+  assertRightAligned("⚑");
   assert.deepEqual(findNode(setup.renderer.root, "⚑").fg, RGBA.fromHex("#228B22"), "Goal uses the same default green");
   await hover("⚑");
   assert.deepEqual(findNode(setup.renderer.root, "⚑").fg, RGBA.fromHex("#86EFAC"), "Goal uses the same hover green");
@@ -273,10 +358,10 @@ try {
   await click("Clear"); await wait(20); await setup.renderOnce();
   assert.deepEqual(goalCommands.at(-1).input, { sessionID: "main", name: "goal", text: "clear" });
   assert.ok(!setup.captureCharFrame().includes("⚑") && !setup.captureCharFrame().includes("Goal ·"), "Clearing dismisses the goal and its hover");
-  assert.equal(find("Context [custom]").x, 6, "No empty goal gap remains");
+  assert.equal(findNode(setup.renderer.root, " ($1.23)").x + findNode(setup.renderer.root, " ($1.23)").width, 100, "Context stays right-aligned when the goal disappears");
   goalChanged(exampleGoal); setStatuses("child", "running"); setShells([shell]); await setup.renderOnce();
   phase = "goal with counters and reconnect";
-  assert.ok(setup.captureCharFrame().includes("1 ⧉ 1 ❯_ ⚑"), "All three indicators share one compact row");
+  assert.ok(setup.captureCharFrame().includes("1 ⧉ · 1 ❯_ · ⚑"), "All three indicators share one compact row");
   goals.set("main", null);
   for (const reconnect of reconnectListeners) reconnect();
   await wait(20); await setup.renderOnce();
@@ -299,7 +384,7 @@ try {
   setMounted(false); await setup.renderOnce();
   assert.equal(unregistered, 2); assert.equal(layers.size, 0, "Disable cleans up routes and keymaps");
   assert.equal(goalListeners.size, 0); assert.equal(reconnectListeners.size, 0);
-  console.log("PASS: goal hover Pause/Resume/Clear; yellow paused/green resumed flag; command refresh, pending guards, failure toasts, and session-switch cancellation; consistent spacing; subagent/Esc navigation; live shell output; reconnect and cleanup.");
+  console.log("PASS: right-aligned fixed fourteen-column Activity with middle dots, blank slots, X overflow counts and stable positions; goal hover controls and colors; subagent/Esc navigation; live shell output; reconnect and cleanup.");
 } catch (error) {
   console.error(`Renderer test failed during: ${phase}\n${setup.captureCharFrame()}`);
   throw error;

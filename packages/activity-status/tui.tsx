@@ -4,7 +4,7 @@ import type { BoxRenderable, MouseEvent } from "@opentui/core";
 import { Portal } from "@opentui/solid";
 import { Goal } from "@opencode/schema/goal";
 import { batch, createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
-import { cardPlacement, isDescendant, shells, subagents } from "./activity.mjs";
+import { cardPlacement, formatCount, isDescendant, shells, subagents } from "./activity.mjs";
 import { ShellView } from "./shell-view";
 import { GoalDetails } from "./goal-details";
 import { watchGoal } from "./goals.mjs";
@@ -14,6 +14,8 @@ const indicatorColors = { normal: "#228B22", hover: "#86EFAC" };
 const pausedColors = { normal: "#EAB308", hover: "#FDE047" };
 type Indicator = "sub" | "shell" | "goal";
 type GoalAction = "pause" | "resume" | "clear";
+const indicators: Indicator[] = ["sub", "shell", "goal"];
+const indicatorWidths = { sub: 3, shell: 4, goal: 1 };
 
 export default Plugin.define({
   id: "local.activity-status",
@@ -92,7 +94,7 @@ export default Plugin.define({
           }
         });
         const count = (kind: Indicator) => kind === "goal" ? Number(!!goal()) : kind === "sub" ? running() : commands().length;
-        const visible = createMemo(() => (["sub", "shell", "goal"] as const).filter((kind) => count(kind) > 0));
+        const visible = createMemo(() => indicators.filter((kind) => count(kind) > 0));
         const visibility = createMemo(() => visible().join(","));
         const [hover, setHover] = createSignal<Indicator>();
         const [pointed, setPointed] = createSignal<Indicator>();
@@ -180,8 +182,8 @@ export default Plugin.define({
           if (sessionID) void context.data.shell.sync(current).catch(() => {});
         });
         createEffect(() => {
-          // A disappearing counter (or a shifted neighbor) invalidates its card
-          // anchor. Cancel pending hover timers as well as already-open cards.
+           // A disappearing counter invalidates its card. Cancel pending hover
+           // timers as well as already-open cards; fixed slots never shift.
           visibility(); props.mode;
           dismiss(); setPointed(undefined);
         });
@@ -212,22 +214,32 @@ export default Plugin.define({
           }
         };
         return (
-          <Show when={props.sessionID && props.mode === "normal" && visible().length > 0}>
-            <box flexDirection="row" height={1} flexShrink={0} gap={1}>
-              <For each={visible()}>{(kind) => (
-                <text wrapMode="none" height={1} flexShrink={0} selectable={false}
-                  fg={kind === "goal" && goal()?.status === "paused"
-                    ? pointed() === kind ? pausedColors.hover : pausedColors.normal
-                    : pointed() === kind ? indicatorColors.hover : indicatorColors.normal}
-                  onMouseOver={(event) => open(kind, event)} onMouseOut={leave}
-                  onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); }}
-                  onMouseUp={(event) => { if (event.button === 0 && !event.isDragging) {
-                    event.preventDefault(); event.stopPropagation();
-                    if (kind === "goal") showGoal(); else open(kind, event, true);
-                  } }}>
-                  {kind === "goal" ? "⚑" : `${count(kind)} ${kind === "sub" ? "⧉" : "❯_"}`}
-                </text>
-              )}</For>
+          <Show when={props.sessionID && props.mode === "normal"}>
+            <box flexDirection="row" height={1} flexShrink={0} flexGrow={1} justifyContent="flex-end">
+              <box id="local.activity-status.indicators" width={14} height={1} flexDirection="row" flexShrink={0}>
+                <For each={indicators}>{(kind, index) => (<>
+                  <Show when={count(kind) > 0} fallback={<box width={indicatorWidths[kind]} height={1} flexShrink={0} />}>
+                    <text width={indicatorWidths[kind]} wrapMode="none" height={1} flexShrink={0} selectable={false}
+                      fg={kind === "goal" && goal()?.status === "paused"
+                        ? pointed() === kind ? pausedColors.hover : pausedColors.normal
+                        : pointed() === kind ? indicatorColors.hover : indicatorColors.normal}
+                      onMouseOver={(event) => open(kind, event)} onMouseOut={leave}
+                      onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); }}
+                      onMouseUp={(event) => { if (event.button === 0 && !event.isDragging) {
+                        event.preventDefault(); event.stopPropagation();
+                        if (kind === "goal") showGoal(); else open(kind, event, true);
+                      } }}>
+                      {kind === "goal" ? "⚑" : `${formatCount(count(kind))} ${kind === "sub" ? "⧉" : "❯_"}`}
+                    </text>
+                  </Show>
+                  <Show when={index() < indicators.length - 1}>
+                    <Show when={count(kind) > 0 && count(indicators[index() + 1]) > 0}
+                      fallback={<box width={3} height={1} flexShrink={0} />}>
+                      <text width={3} height={1} flexShrink={0} selectable={false} fg={indicatorColors.normal}> · </text>
+                    </Show>
+                  </Show>
+                </>)}</For>
+              </box>
               <Show when={hover()}>
                 <Portal mount={context.renderer.root} ref={(container) => {
                   // OpenTUI's Portal ref type is {}, but its root is a box.

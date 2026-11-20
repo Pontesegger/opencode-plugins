@@ -98,7 +98,8 @@ resizing, and click handling. The Busy Status test
 checks animation, idle/running transitions, session switching, and timer cleanup.
 The Links test checks gray styling, hover cards, native hyperlinks, live updates, session isolation, stale
 requests, reconnect, and listener cleanup.
-The Activity Status test checks compact placement, matching Skills colors,
+The Activity Status test checks right-aligned fixed-width placement, blank slots,
+middle-dot separators, X counts above nine, matching Skills colors,
 menu spacing, clickable hover lists, subagent/Esc navigation, live shell output
 through exit, live goal updates, Pause/Resume/Clear hover controls, paused-yellow
 and resumed-green colors, goal-only visibility, reconnect, and cleanup.

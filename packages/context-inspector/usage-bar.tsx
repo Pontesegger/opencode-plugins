@@ -33,7 +33,9 @@ export function UsageBar(props: { sessionID?: string; mode: string; onToggle: ()
 
   return (
     <Show when={props.sessionID && props.mode === "normal"}>
-      <box flexDirection="row" paddingLeft={1} flexShrink={0} flexGrow={1} justifyContent="flex-end">
+      {/* Auto margin anchors Context alone without growing a blank gap between
+          it and Activity Status, whose right-aligned container fills the row. */}
+      <box flexDirection="row" paddingLeft={1} flexShrink={0} marginLeft="auto" justifyContent="flex-end">
         <text fg={hovered() ? context.theme.text.base : context.theme.text.muted} selectable={false}
           onMouseOver={() => setHovered(true)}
           onMouseOut={() => setHovered(false)}

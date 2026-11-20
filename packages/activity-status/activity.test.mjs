@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cardPlacement, isDescendant, shells, subagents } from "./activity.mjs";
+import { cardPlacement, formatCount, isDescendant, shells, subagents } from "./activity.mjs";
+
+test("counter labels use one character, with X for counts above nine", () => {
+  for (let count = 0; count <= 9; count++) assert.equal(formatCount(count), String(count));
+  for (const count of [10, 11, 99, 1000]) assert.equal(formatCount(count), "X");
+});
 
 const sessions = {
   main: { id: "main" },

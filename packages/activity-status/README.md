@@ -1,9 +1,23 @@
 # Activity Status
 
-Compact **OpenCode V2** footer indicators: `2 ⧉ 1 ❯_ ⚑`, matching the Skills sidebar's
+Compact **OpenCode V2** footer indicators: `2 ⧉ · 1 ❯_ · ⚑`, matching the Skills sidebar's
 dark green (`#228B22`) and light-green hover highlighting (`#86EFAC`).
 Paused goals use yellow (`#EAB308`), with light yellow (`#FDE047`) on hover;
 resuming restores the green palette.
+
+The indicators form a right-aligned group to the left of Context Inspector's
+usage display. Context remains rightmost; when Context Inspector is not loaded,
+Activity Status aligns to the right edge itself. Busy Status stays on the left.
+
+The group reserves **14 character columns**: three for subagents, four for shells,
+one for the goal, and two ` · ` separators. Each count uses one character;
+totals above nine display **X** (the hover list still contains the actual items).
+Absent indicators leave spaces in their fixed slots. A middle dot appears only
+when both of its adjacent indicators are visible; otherwise its three columns
+remain blank. All slots remain reserved even when both counts are zero and no
+goal is set, so indicators and Context never hop left or right as activity changes.
+Blank slots and dots are
+not interactive. The group is hidden on the home screen and in shell input mode.
 
 - `⧉` counts running descendant sessions, excluding the main session. Its hover
   list includes idle/completed subagents too, so their work remains inspectable.
@@ -29,9 +43,9 @@ resuming restores the green palette.
   stays open after exit, and shows the most recent 64 KiB. Up/Down, wheel,
   PgUp/PgDn and Home scroll; End resumes following; Esc returns without killing
   the command. Output redirected to files is not captured here.
-- Each counter appears only while its active count is greater than zero. When
-  both counts are zero and no goal exists, the entire contribution disappears
-  without leaving a gap. A goal can appear by itself.
+- Each counter appears only while its active count is greater than zero, with
+  spaces preserving its position otherwise. A goal can appear by itself without
+  moving into a counter's slot.
   Labels never wrap. Hover cards float above the footer instead of taking a second
   status row, and dismiss if their counter disappears or moves.
 - Existing plugin contributions and OpenCode's built-in footer are unchanged.
@@ -48,9 +62,10 @@ Add the directory to global `~/.config/opencode/cli.json`:
 ```
 
 Merge with your existing plugin list. No server component is required. The plugin
-appends to `prompt.footer`; Context Inspector contributes after that slot, so the
-counters sit directly before its Context usage bar, independent of load order.
-No existing plugin needs modification. Other footer contents can still exceed a
+contributes before `prompt.footer`; Context Inspector contributes after that
+slot, preserving their order independently of plugin load order. With the
+standard footer hidden, the indicators sit directly before the Context usage bar.
+Other footer contents can still exceed a
 very narrow terminal; this plugin does not remove or reflow them.
 
 Config changes reload automatically; use `/reload` if needed. SDK 2.2.7 and the

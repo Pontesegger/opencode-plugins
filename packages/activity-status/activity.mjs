@@ -1,3 +1,7 @@
+export function formatCount(count) {
+  return count > 9 ? "X" : String(count);
+}
+
 export function isDescendant(id, parentID, getSession) {
   const seen = new Set();
   while (id && !seen.has(id)) {
