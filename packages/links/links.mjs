@@ -48,7 +48,9 @@ export function createLinks(storage) {
   const list = async (sessionID) => {
     const storageKey = key(sessionID);
     await pending.get(sessionID);
-    return (await storage.get(storageKey)) ?? [];
+    // Storage stays oldest-first for compatibility with already saved links.
+    // Reverse a copy so reads never change the durable insertion order.
+    return [...((await storage.get(storageKey)) ?? [])].reverse();
   };
   return {
     list,

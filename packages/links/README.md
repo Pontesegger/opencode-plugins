@@ -48,7 +48,9 @@ The session sidebar must be visible to see the section.
   session happens to be visible. Switching sessions displays that session's links.
 - Links persist in OpenCode's plugin storage across reloads and restarts. Reposting
   the same normalized URL updates its label and any supplied description in place;
-  omitting the description preserves the previous one. New URLs append in order.
+  omitting the description preserves the previous one. Links display by insertion
+  order, newest first and oldest last, including previously saved links. Reposting
+  an existing URL does not move it to the top.
 - Labels use the theme's muted gray color, changing immediately to light blue
   with an underline while the pointer is over the row. Hovering briefly opens a scrollable
   card with the label, optional longer description (up to 1000 characters), and

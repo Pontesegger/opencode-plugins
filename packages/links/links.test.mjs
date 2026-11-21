@@ -77,13 +77,36 @@ test("links are session-specific, durable across reloads, and deduplicated by no
   assert.throws(() => links.post("", { url: "https://example.com", label: "Docs" }));
 });
 
-test("parallel posts preserve every link in posting order", async () => {
+test("links list newest first across reloads without moving reposted URLs", async () => {
+  const storage = memory();
+  const links = createLinks(storage);
+  await links.post("one", { url: "https://example.com/1", label: "First" });
+  await links.post("one", { url: "https://example.com/2", label: "Second" });
+  await links.post("one", { url: "https://example.com/3", label: "Third" });
+  await links.post("one", { url: "https://example.com/1", label: "Updated first" });
+  const expected = ["Third", "Second", "Updated first"];
+  assert.deepEqual((await links.list("one")).map((link) => link.label), expected);
+  assert.deepEqual((await createLinks(storage).list("one")).map((link) => link.label), expected);
+});
+
+test("previously stored links list newest first without mutating storage", async () => {
+  const saved = [
+    { url: "https://example.com/1", label: "First" },
+    { url: "https://example.com/2", label: "Second" },
+  ];
+  const links = createLinks({ get: async () => saved });
+  assert.deepEqual((await links.list("one")).map((link) => link.label), ["Second", "First"]);
+  assert.deepEqual((await links.list("one")).map((link) => link.label), ["Second", "First"]);
+  assert.deepEqual(saved.map((link) => link.label), ["First", "Second"]);
+});
+
+test("parallel posts preserve every link in newest-first insertion order", async () => {
   const links = createLinks(memory());
   await Promise.all(Array.from({ length: 20 }, (_, i) => links.post("one", {
     url: `https://example.com/${i}`, label: `Link ${i}`,
   })));
   assert.deepEqual((await links.list("one")).map((link) => link.label),
-    Array.from({ length: 20 }, (_, i) => `Link ${i}`));
+    Array.from({ length: 20 }, (_, i) => `Link ${19 - i}`));
 });
 
 test("a failed write does not block later posts", async () => {

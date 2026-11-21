@@ -50,7 +50,7 @@ test("server registers a session-scoped tool, read-only RPC, proactive instructi
   notifyFails = true;
   await tool.execute({ url: "https://example.com/second", label: "Second", description: "More detail on the second link" }, { sessionID: "current" });
   assert.equal((await methods.list({ sessionID: "current" })).length, 2);
-  assert.equal((await methods.list({ sessionID: "current" }))[1].description, "More detail on the second link");
+  assert.equal((await methods.list({ sessionID: "current" }))[0].description, "More detail on the second link");
   const event = { system: [{ type: "text", text: "Original instructions" }] };
   hook(event);
   assert.equal(event.system[0].text, "Original instructions");
