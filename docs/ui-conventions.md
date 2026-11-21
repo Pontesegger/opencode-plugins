@@ -27,8 +27,8 @@ informative colors rather than making unrelated status indicators identical.
 - Context categories retain their attribution colors and use bright-white hover
   feedback. Context usage keeps its green/yellow/red threshold meanings.
 - Busy Status remains a noninteractive red scanner, visible only while running.
-  Dark-red square brackets fence its twelve-cell track; including the original
-  outer padding, the widget occupies sixteen columns. The saturated-red head has
+  Dark-red square brackets fence its fourteen-cell track; including the original
+  outer padding, the widget occupies eighteen columns. The saturated-red head has
   four progressively darker fading trail cells, all drawn as centered `▬` rectangles.
 
 ## Placement and interaction

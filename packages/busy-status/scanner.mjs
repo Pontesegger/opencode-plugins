@@ -1,5 +1,5 @@
 // Shade symbols describe colors; the TUI draws all five as centered rectangles.
-export const width = 12;
+export const width = 14;
 const travel = width - 1;
 const positions = Array.from({ length: 2 * travel }, (_, index) =>
   index <= travel ? index : 2 * travel - index,

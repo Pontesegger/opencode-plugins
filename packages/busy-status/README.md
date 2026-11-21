@@ -11,12 +11,13 @@ is also available. Terminal font rendering may vary.
 ## Behavior
 
 A five-character red running light sweeps continuously back and forth across a
-dark, twelve-cell track with no text label. All five characters are centered
+dark, fourteen-cell track with no text label. All five characters are centered
 rectangles (`▬`): a saturated bright-red head followed by four progressively darker trail cells.
 Exact vertical alignment depends on the terminal font.
-Dark-red square brackets (`[` and `]`, `#801010`) fence the track. The twelve-cell
-running light and existing outer padding are unchanged; the whole widget occupies
-sixteen columns, exactly two more than the unbracketed version.
+Dark-red square brackets (`[` and `]`, `#801010`) fence the track. With the brackets
+and existing outer padding, the whole widget occupies eighteen columns. The track
+is two cells wider; the five-character moving light, colors, and animation speed
+are unchanged.
 The bright head travels one cell per frame all the way to each edge. The four
 darker shades mark its previous four positions, rather than flipping the whole
 shape when reversing. After each turnaround, older trail cells briefly overlap

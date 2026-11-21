@@ -24,9 +24,9 @@ function fakeClock() {
 }
 
 test("the bright head moves one cell per frame through both edges without jumping", () => {
-  assert.deepEqual(frames.map((frame) => frame.indexOf("█")), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
+  assert.deepEqual(frames.map((frame) => frame.indexOf("█")), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
   for (const [index, frame] of frames.entries()) {
-    assert.equal(frame.length, 12);
+    assert.equal(frame.length, 14);
     assert.equal(frame.split("█").length, 2, "Exactly one bright head");
     const next = frames[(index + 1) % frames.length];
     assert.equal(Math.abs(next.indexOf("█") - frame.indexOf("█")), 1, "Head moves one cell even at turnarounds and the loop boundary");
@@ -96,8 +96,8 @@ test("stopping at a turnaround cancels its timer and prevents late updates", () 
   const clock = fakeClock();
   const seen = [];
   const stop = startScanner((frame) => seen.push(frame), clock);
-  for (let i = 0; i < 11; i++) clock.advance();
-  assert.equal(seen.at(-1), frames[11]);
+  for (let i = 0; i < 13; i++) clock.advance();
+  assert.equal(seen.at(-1), frames[13]);
   const pending = clock.active.values().next().value;
   assert.equal(pending.delay, 90);
   stop();

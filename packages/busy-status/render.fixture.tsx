@@ -95,7 +95,8 @@ try {
       JSON.stringify(span.bg) === JSON.stringify(RGBA.fromHex(trackBackground)));
     assert.equal(spans.map((span) => span.text).join(""), ` [${frame.replace(/[·░▒▓█]/g, "▬")}] `,
       "Square brackets fence the centered-rectangle scanner track");
-    assert.equal(frame.length, 12, "The running light still travels across twelve cells");
+    assert.equal(frame.length, 14, "The running light travels across the widened fourteen-cell track");
+    assert.equal(width + 4, 18, "The whole indicator is two columns wider, including brackets and padding");
     assert.equal(spans.reduce((sum, span) => sum + span.width, 0), width + 4, "Brackets add exactly two columns to the track plus padding");
     const brackets = spans.filter((span) => /[\[\]]/.test(span.text));
     assert.equal(brackets.length, 2, "Both square brackets remain visible through every animation frame");
@@ -254,7 +255,7 @@ try {
   assert.deepEqual(errors, [{ message: "Unable to save status bar preference", variant: "error" }]);
   stop();
   assert.equal(definitions.size, 1);
-  console.log("PASS: dark-red square brackets add two columns around the unchanged twelve-cell scanner; animation and cleanup; hidden-by-default status bar; /statusbar toggle; stable plugin registration; durable preferences, cross-client updates, and save failures.");
+  console.log("PASS: fourteen-cell scanner occupies eighteen columns with dark-red brackets and padding; unchanged five-block light and animation speed; animation and cleanup; hidden-by-default status bar; /statusbar toggle; stable plugin registration; durable preferences, cross-client updates, and save failures.");
 } finally {
   if (!setup.renderer.isDestroyed) setup.renderer.destroy();
   globalThis.setTimeout = originalSet;
