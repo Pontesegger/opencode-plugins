@@ -48,12 +48,34 @@ let savedUsage: { lastClicked: Record<string, number | number[]> } = { lastClick
 let savedVisibility = { hiddenIDs: { hidden: true } as Record<string, boolean> };
 const warnings: string[] = [];
 let failWrites = false;
+let menuKeymap;
+const copyCommands = [];
+const invalidatedSkills = [];
+let failCopy = false;
+let repoCopySelected = false;
 
 function Skills() {
   let slot;
   plugin.setup({
     renderer: useRenderer(), options: {}, location,
-    client: { file: { read: async () => { throw new Error("Visibility must not read skill files"); } } },
+    client: {
+      file: { read: async ({ path }) => {
+        assert.ok([".opencode/opencode.json", ".opencode/opencode.jsonc"].includes(path), "Only project config is read for copy registration");
+        throw { _tag: "FileNotFoundError" };
+      } },
+      skill: { list: async () => {
+        repoCopySelected = true;
+        return { data: [{ id: "global", path: `${location.directory}/.agents/skills/global/SKILL.md` }] };
+      } },
+      shell: {
+        create: async (input) => {
+          assert.deepEqual(input.location, location, "Copy runs on the connected server at the session location");
+          copyCommands.push(input);
+          return { data: { id: "copy", status: "exited", exit: failCopy ? 1 : 0 } };
+        },
+        output: async () => ({ data: { output: "[skills-copy] A repo copy already exists; nothing was overwritten" } }),
+      },
+    },
     storage: { store: (key, { initial }) => {
       assert.ok(["skill-usage", "skill-visibility"].includes(key));
       const [state, setState] = createStore(structuredClone((key === "skill-usage" ? savedUsage : savedVisibility) ?? initial));
@@ -71,9 +93,14 @@ function Skills() {
     },
     data: {
       session: { get: () => ({ location }) },
-      location: { skill: { list: () => registeredSkills(), sync: async () => {} }, reference: { list: () => [] } },
+      location: { skill: { list: () => registeredSkills(), sync: async () => {
+        if (repoCopySelected) setRegisteredSkills((registered) => registered.map((skill) => skill.id === "global"
+          ? { ...skill, path: `${location.directory}/.agents/skills/global/SKILL.md` } : skill));
+      },
+        invalidate: (location) => invalidatedSkills.push(location) }, reference: { list: () => [] } },
     },
     keymap: {
+      layer: (factory) => { menuKeymap = factory; },
       commands: () => autocompleteAvailable ? [{ id: "prompt.autocomplete.complete", run() {} }] : [],
       dispatch: (command) => {
         if (command === "pane.focus.left") { prompt.focus(); return; }
@@ -133,7 +160,7 @@ try {
    assert.ok(!setup.captureCharFrame().includes("Hidden skill"), "Saved user preference hides the skill row on startup");
   const findText = (node, text) => node.plainText === text ? node
     : node.getChildren().map((child) => findText(child, text)).find(Boolean);
-  const skillRow = findText(setup.renderer.root, "Alpha");
+  let skillRow = findText(setup.renderer.root, "Alpha");
   for (const [name, color] of [["Alpha", blue], ["Builtin", purple], ["Global", muted], ["Other", muted]]) {
     const nameText = findText(setup.renderer.root, name);
     const expectedColor = name === "Global" ? darkGreen : name === "Builtin" ? midGreen : muted;
@@ -167,39 +194,22 @@ try {
   assert.ok(!frame.includes("/Alpha"), "Sidebar row and hover title do not have a slash prefix");
   assert.ok(frame.includes("A distinctive hover description."), "Hover description should be visible");
   assert.ok(frame.includes("Location: Repo"), "Source scope should be visible");
+  const activePath = findText(setup.renderer.root, skill.path);
+  assert.ok(activePath, "Hover shows the exact path selected by the active registry");
   const sourceLine = findText(setup.renderer.root, "Location: Repo");
   assert.deepEqual(sourceLine.fg, muted, "Location label stays muted gray");
   assert.deepEqual(sourceLine.textNode.toChunks().find((chunk) => chunk.text === "Repo")?.fg, blue,
     "Location value matches the skill's source color");
    assert.ok(frame.includes("Main transcript"), "Hover must not displace application layout");
-   const hide = findText(setup.renderer.root, "hide");
-   const hoverTitle = findText(setup.renderer.root, "@Alpha");
-   assert.ok(hide, "Hover card offers a hide action");
-   assert.equal(hide.y, hoverTitle.y, "Hide shares the top title row");
-   assert.ok(hide.x > hoverTitle.x, "Hide is in the upper-right corner");
-   assert.deepEqual(hide.fg, muted, "Hide text is gray by default");
-   await setup.mockMouse.moveTo(hide.x + 1, hide.y);
-   await setup.renderOnce();
-   assert.deepEqual(hide.fg, white, "Hide text turns bright white on hover");
-   await wait(200);
-   await setup.renderOnce();
-   assert.ok(findText(setup.renderer.root, "hide"), "Hover card stays open over the hide action");
-   await setup.mockMouse.click(hide.x + 1, hide.y, 2);
-   await setup.renderOnce();
-   assert.equal(savedVisibility.hiddenIDs.alpha, undefined, "Right-click cannot hide a skill");
-   await setup.mockMouse.pressDown(hide.x + 1, hide.y);
-   await setup.mockMouse.moveTo(hoverTitle.x, hoverTitle.y);
-   await setup.mockMouse.release(hoverTitle.x, hoverTitle.y);
-   await setup.renderOnce();
-   assert.equal(savedVisibility.hiddenIDs.alpha, undefined, "Dragging off hide does not hide a skill");
-   assert.deepEqual(hide.fg, muted, "Hide returns to gray on mouse leave");
+    const hoverTitle = findText(setup.renderer.root, "@Alpha");
+    assert.ok(!findText(setup.renderer.root, "hide"), "Hover card is informational, with no hide action");
    const findScrollBox = (node): ScrollBoxRenderable | undefined => node instanceof ScrollBoxRenderable ? node
      : node.getChildren().map(findScrollBox).find(Boolean);
    const descriptionScroll = findScrollBox(hoverTitle.parent.parent);
    assert.ok(descriptionScroll, "Long descriptions have a scrollable region");
    const sourceY = sourceLine.y;
-   assert.equal(descriptionScroll.y, sourceY + sourceLine.height + 1,
-     "Location and one blank line sit above the description's scrollable region");
+    assert.equal(descriptionScroll.y, activePath.y + activePath.height + 1,
+      "Location, selected path and one blank line sit above the description's scrollable region");
    await setup.mockMouse.moveTo(descriptionScroll.x + 1, descriptionScroll.y + 1);
    for (let step = 0; step < 8; step++) {
      await setup.mockMouse.scroll(descriptionScroll.x + 1, descriptionScroll.y + 1, "down");
@@ -209,8 +219,9 @@ try {
    const scrolledFrame = setup.captureCharFrame();
    assert.ok(!scrolledFrame.includes("A distinctive hover description."), "Description contents actually move");
    assert.ok(scrolledFrame.split("\n")[sourceY].includes("Location: Repo"), "Location remains visible at its original row");
-   assert.ok(!scrolledFrame.split("\n")[sourceY + 1].includes("Long skill description"), "Blank separator stays above the scrolling text");
-   assert.ok(findText(setup.renderer.root, "hide"), "Hide action remains available while scrolling");
+    assert.equal(findText(setup.renderer.root, skill.path)?.y, activePath.y, "Active path stays fixed while scrolling");
+    assert.ok(!scrolledFrame.split("\n")[descriptionScroll.y - 1].includes("Long skill description"), "Blank separator stays above the scrolling text");
+    assert.ok(findText(setup.renderer.root, "@Alpha"), "Title stays fixed while scrolling");
    descriptionScroll.scrollTo(0);
    await setup.renderOnce();
   const suffixColumn = lines[row].lastIndexOf("●");
@@ -235,6 +246,37 @@ try {
   await wait(200);
   await setup.renderOnce();
   assert.ok(!setup.captureCharFrame().includes("A distinctive hover description."), "Card disappears on mouse leave");
+
+  // Same ID/name, different selected definitions: neither sorting nor the
+  // sidebar may infer precedence from a repo copy's mere existence.
+  for (const [path, scope, color, dot] of [
+    [`${homedir()}/.config/opencode/skills/alpha/SKILL.md`, "Global", muted, " "],
+    [skill.path, "Repo", blue, "●"],
+    [`${homedir()}/.opencode/skills/alpha/SKILL.md`, "Global", muted, " "],
+    ["skill://alpha/SKILL.md", "Built-in", purple, "●"],
+    [`${homedir()}/.config/opencode/skills/alpha/SKILL.md`, "Global", muted, " "],
+  ] as const) {
+    setRegisteredSkills(skills.map((entry) => entry.id === skill.id
+      ? { ...entry, path, description: "Description of the selected definition." } : entry));
+    await setup.renderOnce();
+    assert.equal(setup.captureCharFrame().split("Alpha").length - 1, 1, "One active row per ID");
+    const selectedRow = findText(setup.renderer.root, "Alpha");
+    const indicator = selectedRow.parent.getChildren()[1];
+    assert.equal(indicator.plainText, dot, "Dot reflects the selected definition, not another same-ID copy");
+    assert.deepEqual(indicator.fg, color, "Source color follows registry path changes");
+    await setup.mockMouse.moveTo(selectedRow.x, selectedRow.y);
+    await wait(350);
+    await setup.renderOnce();
+    assert.ok(findText(setup.renderer.root, `Location: ${scope}`), "Hover scope follows the selected definition");
+    assert.ok(findText(setup.renderer.root, path), "Hover reports the selected definition's exact path");
+    assert.ok(findText(setup.renderer.root, "Description of the selected definition."), "Description comes from the same definition");
+    await setup.mockMouse.moveTo(0, 0);
+    await wait(200);
+    await setup.renderOnce();
+  }
+  setRegisteredSkills(skills);
+  await setup.renderOnce();
+  skillRow = findText(setup.renderer.root, "Alpha");
 
   prompt.setText("Existing text ");
   prompt.gotoBufferEnd();
@@ -261,14 +303,19 @@ try {
   await setup.mockMouse.click(column + 2, row, 2);
   await wait(50);
   assert.equal(prompt.plainText, "Existing text @alpha Apply this workflow", "Right-click must not insert anything");
-  assert.deepEqual(savedUsage.lastClicked.alpha, firstHistory, "Right-click does not record usage");
+   assert.deepEqual(savedUsage.lastClicked.alpha, firstHistory, "Right-click does not record usage");
+   await setup.mockMouse.click(0, 0);
+   await setup.renderOnce();
 
   const builtinRow = lines.findIndex((line) => line.includes("Builtin"));
   const builtinHistory = structuredClone(savedUsage.lastClicked.builtin);
   await setup.mockMouse.click(column + 2, builtinRow, 2);
   await wait(50);
   await setup.renderOnce();
-  assert.deepEqual(savedUsage.lastClicked.builtin, builtinHistory, "Right-click does not change existing usage");
+   assert.deepEqual(savedUsage.lastClicked.builtin, builtinHistory, "Right-click does not change existing usage");
+   assert.ok(findText(setup.renderer.root, "hide"), "Built-in skills offer the same context menu");
+   await setup.mockMouse.click(0, 0);
+   await setup.renderOnce();
   await setup.mockMouse.click(column + 2, builtinRow);
   await wait(50);
   await setup.renderOnce();
@@ -460,19 +507,142 @@ try {
   assert.equal(prompt.plainText, draft, "Toggle does not modify the prompt");
   assert.equal(selectedSkills.length, selections, "Toggle does not select skills");
    assert.deepEqual(savedUsage, historyBeforeAging, "Collapse/expand preserves usage history");
-   const openAlphaCard = async () => {
-     await setup.mockMouse.moveTo(0, 0);
-     await setup.renderOnce();
-     const row = findText(setup.renderer.root, "Alpha");
-     await setup.mockMouse.moveTo(row.x, row.y);
-     await wait(350);
-     await setup.renderOnce();
-     const action = findText(setup.renderer.root, "hide");
-     assert.ok(action, "Hide is accessible after resize");
-     return action;
-   };
-   failWrites = true;
-   const failedHide = await openAlphaCard();
+    const openAlphaMenu = async () => {
+      if (findText(setup.renderer.root, "hide")) await setup.mockMouse.click(0, 0);
+      await setup.mockMouse.moveTo(0, 0);
+      await setup.renderOnce();
+      const row = findText(setup.renderer.root, "Alpha");
+      await setup.mockMouse.click(row.x, row.y, 2);
+      await setup.renderOnce();
+      const action = findText(setup.renderer.root, "hide");
+      assert.ok(action, "Right-click opens a hide context menu after resize");
+      assert.ok(!findText(setup.renderer.root, "@Alpha"), "Opening the menu dismisses hover details");
+      assert.ok(action.x >= 0 && action.x + action.width <= setup.renderer.width,
+        "Menu is clamped inside the terminal");
+      return action;
+    };
+    const menuDraft = prompt.plainText;
+    const menuSelections = selectedSkills.length;
+    for (const name of ["Alpha", "Builtin", "Global", "Other", "Very long skill name that wraps"]) {
+      const row = findText(setup.renderer.root, name);
+      await setup.mockMouse.click(row.x, row.y, 2);
+      await setup.renderOnce();
+      assert.ok(findText(setup.renderer.root, "hide"), `${name} has a context menu`);
+      assert.equal(Boolean(findText(setup.renderer.root, "copy to repo")), name === "Global",
+        "Only globally stored skills offer copy to repo");
+      await setup.mockMouse.click(row.x, row.y);
+      await setup.renderOnce();
+      assert.ok(!findText(setup.renderer.root, "hide"), "Outside row click closes the menu without clicking through");
+    }
+    assert.equal(prompt.plainText, menuDraft, "Opening and dismissing menus does not modify the draft");
+    assert.equal(selectedSkills.length, menuSelections, "Outside clicks are not forwarded to skill selection");
+    const openCopyMenu = async () => {
+      await setup.mockMouse.moveTo(0, 0);
+      await setup.renderOnce();
+      const row = findText(setup.renderer.root, "Global");
+      await setup.mockMouse.click(row.x, row.y, 2);
+      await setup.renderOnce();
+      const action = findText(setup.renderer.root, "copy to repo");
+      assert.ok(action, "Global context menu offers copying");
+      assert.equal(action.width, 12, "Menu is wide enough for the complete copy to repo label");
+      return action;
+    };
+    const copyAction = await openCopyMenu();
+    assert.deepEqual(copyAction.fg, muted, "Copy action is gray by default");
+    await setup.mockMouse.moveTo(copyAction.x + 1, copyAction.y);
+    await setup.renderOnce();
+    assert.deepEqual(copyAction.fg, white, "Copy action turns bright white on hover");
+    await setup.mockMouse.click(copyAction.x + 1, copyAction.y, 2);
+    await setup.renderOnce();
+    assert.equal(copyCommands.length, 0, "Right-clicking copy does not execute it");
+    await setup.mockMouse.pressDown(copyAction.x + 1, copyAction.y);
+    await setup.mockMouse.moveTo(0, 0);
+    await setup.mockMouse.release(0, 0);
+    await setup.renderOnce();
+    assert.equal(copyCommands.length, 0, "Dragging off copy does not execute it");
+    menuKeymap().commands.find((command) => command.bind === "escape").run();
+    await setup.renderOnce();
+    const successfulCopy = await openCopyMenu();
+    await setup.mockMouse.click(successfulCopy.x + 1, successfulCopy.y);
+    await wait(50);
+    await setup.renderOnce();
+    assert.equal(copyCommands.length, 1, "Left-click starts one server-side copy");
+    assert.equal(copyCommands[0].cwd, location.directory, "Copy uses the session's working directory");
+    assert.ok(copyCommands[0].command.includes(".agents"), "Copy targets the chosen .agents/skills folder");
+    assert.deepEqual(invalidatedSkills, [location], "Successful copy refreshes the session skill registry");
+    assert.match(warnings.at(-1), /Skill copied to .*\.agents\/skills\/global/);
+    assert.ok(!findText(setup.renderer.root, "copy to repo"), "Successful copy dismisses the menu");
+    const localGlobal = findText(setup.renderer.root, "Global");
+    assert.equal(localGlobal.parent.getChildren()[1].plainText, "●", "Refreshed row now has the repo source indicator");
+    const localEntry = registeredSkills().find((skill) => skill.id === "global");
+    assert.equal(localEntry.path, `${location.directory}/.agents/skills/global/SKILL.md`, "Sidebar uses the selected repo definition");
+    assert.equal(savedVisibility.hiddenIDs.global, undefined, "Copying does not hide the global skill");
+    assert.deepEqual(savedUsage, historyBeforeAging, "Copying does not record usage");
+    assert.equal(prompt.plainText, menuDraft, "Copying does not change the draft");
+    assert.equal(selectedSkills.length, menuSelections, "Copying does not select a skill");
+    repoCopySelected = false;
+    setRegisteredSkills([...skills]);
+    await setup.renderOnce();
+    failCopy = true;
+    const rejectedCopy = await openCopyMenu();
+    await setup.mockMouse.click(rejectedCopy.x + 1, rejectedCopy.y);
+    await wait(50);
+    await setup.renderOnce();
+    assert.match(warnings.at(-1), /already exists; nothing was overwritten/);
+    assert.deepEqual(invalidatedSkills, [location], "Failed copy does not pretend to refresh a successful copy");
+    failCopy = false;
+    const contextRow = findText(setup.renderer.root, "Alpha");
+    await setup.mockMouse.pressDown(contextRow.x, contextRow.y, 2);
+    await setup.mockMouse.moveTo(0, 0);
+    await setup.mockMouse.release(0, 0, 2);
+    await setup.renderOnce();
+    assert.ok(!findText(setup.renderer.root, "hide"), "Right-button dragging off the row does not open a menu");
+    const firstMenu = await openAlphaMenu();
+    assert.deepEqual(firstMenu.fg, muted, "Context action is gray by default");
+    await setup.mockMouse.moveTo(firstMenu.x + 1, firstMenu.y);
+    await setup.renderOnce();
+    assert.deepEqual(firstMenu.fg, white, "Context action highlights bright white on hover");
+    await setup.mockMouse.moveTo(0, 0);
+    await wait(200);
+    await setup.renderOnce();
+    assert.deepEqual(firstMenu.fg, muted, "Context action returns to gray on mouse leave");
+    assert.ok(findText(setup.renderer.root, "hide"), "Menu stays open until explicitly dismissed");
+    await setup.mockMouse.click(firstMenu.x + 1, firstMenu.y, 2);
+    await setup.renderOnce();
+    assert.equal(savedVisibility.hiddenIDs.alpha, undefined, "Right-clicking hide does not execute it");
+    await setup.mockMouse.pressDown(firstMenu.x + 1, firstMenu.y);
+    await setup.mockMouse.moveTo(0, 0);
+    await setup.mockMouse.release(0, 0);
+    await setup.renderOnce();
+    assert.equal(savedVisibility.hiddenIDs.alpha, undefined, "Dragging off hide does not execute it");
+    const escape = menuKeymap().commands.find((command) => command.bind === "escape");
+    assert.ok(escape, "Menu registers an Escape dismissal action");
+    escape.run();
+    await setup.renderOnce();
+    assert.ok(!findText(setup.renderer.root, "hide"), "Escape closes the menu");
+    assert.equal(menuKeymap().commands.length, 0, "Escape binding is inactive without a menu");
+    await openAlphaMenu();
+    await setup.mockMouse.click(0, 0);
+    await setup.renderOnce();
+    assert.ok(!findText(setup.renderer.root, "hide"), "An outside click dismisses the menu");
+    await openAlphaMenu();
+    setSessionID("menu-session");
+    await setup.renderOnce();
+    assert.ok(!findText(setup.renderer.root, "hide"), "Session changes dismiss the menu");
+    await openAlphaMenu();
+    setRegisteredSkills([...skills]);
+    await setup.renderOnce();
+    assert.ok(!findText(setup.renderer.root, "hide"), "Registry changes dismiss the menu");
+    await openAlphaMenu();
+    setup.renderer.emit("blur");
+    await setup.renderOnce();
+    assert.ok(!findText(setup.renderer.root, "hide"), "Terminal blur dismisses the menu");
+    await openAlphaMenu();
+    setup.renderer.resize(113, 30);
+    await setup.renderOnce();
+    assert.ok(!findText(setup.renderer.root, "hide"), "Resize dismisses the menu");
+    failWrites = true;
+    const failedHide = await openAlphaMenu();
    await setup.mockMouse.click(failedHide.x + 1, failedHide.y);
    await wait(50);
    await setup.renderOnce();
@@ -480,13 +650,13 @@ try {
    assert.ok(findText(setup.renderer.root, "Alpha"), "Failed storage leaves the skill visible");
    assert.match(warnings.at(-1), /Unable to save the hidden skill preference/);
    failWrites = false;
-   const action = await openAlphaCard();
+    const action = await openAlphaMenu();
    await setup.mockMouse.click(action.x + 1, action.y);
    await wait(50);
    await setup.renderOnce();
    assert.equal(savedVisibility.hiddenIDs.alpha, true, "Left-click persists the hidden skill ID");
    assert.ok(!findText(setup.renderer.root, "Alpha"), "Hiding immediately removes the sidebar row");
-   assert.ok(!findText(setup.renderer.root, "hide"), "Hiding dismisses the hover card");
+    assert.ok(!findText(setup.renderer.root, "hide"), "Hiding dismisses the context menu");
    assert.equal(prompt.plainText, draft, "Hiding does not modify the draft");
    assert.equal(selectedSkills.length, selections, "Hiding does not invoke or select the skill");
    assert.equal(submits, 0, "Hiding never submits the prompt");
@@ -501,7 +671,7 @@ try {
    await setup.renderOnce();
    assert.ok(!findText(setup.renderer.root, "Alpha"), "A new plugin instance restores durable visibility preferences");
    assert.ok(findText(setup.renderer.root, "Builtin"), "Other skills remain visible after reload");
-   console.log("PASS: Skills hover, insertion, usage, collapse/expand and durable user hiding; hide placement, hover colors, right-click/drag guards, failed saves, reload and session persistence.");
+    console.log("PASS: Skills hover, description scrolling, insertion, usage, collapse/expand and context-menu hiding; hover colors, dismissal, right-click/drag guards, failed saves, reload and session persistence.");
 } finally {
   Date.now = originalNow;
   setup.renderer.destroy();

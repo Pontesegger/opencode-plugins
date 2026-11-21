@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { insertSkillMention, lastSkillUses, recentSkillUseCount, recordSkillUse, skillPromptText, skillScope, skillScopeColor, skillUsageColor, sortedSkills, tooltipPlacement } from "./skills.mjs";
+import { contextMenuPlacement, insertSkillMention, lastSkillUses, recentSkillUseCount, recordSkillUse, skillPromptText, skillScope, skillScopeColor, skillUsageColor, sortedSkills, tooltipPlacement } from "./skills.mjs";
 
 test("counts only the last three valid uses within the previous seven days", () => {
   const now = 1_800_000_000_000;
@@ -60,6 +60,11 @@ test("breaks equal-name ties by skill ID", () => {
 
 test("handles an empty skill list", () => {
   assert.deepEqual(sortedSkills([]), []);
+});
+
+test("a selected skill in the home .opencode folder is user-level, not repo-local", () => {
+  assert.equal(skillScope("/home/test/.opencode/skills/grilling/SKILL.md",
+    "/home/test/dev/project", "/home/test"), "Global");
 });
 
 test("prompt insertion uses the skill ID with an at sign and exactly one trailing space", () => {
@@ -217,5 +222,18 @@ test("places hover cards left of sidebar rows and inside terminal bounds", () =>
     assert.ok(card.left >= 0 && card.top >= 0);
     assert.ok(card.left + card.width <= columns);
     assert.ok(card.top + card.height <= rows);
+  }
+});
+
+test("places context menus near the pointer and clamps them at every terminal edge", () => {
+  assert.deepEqual(contextMenuPlacement(10, 5, 120, 30), { width: 12, height: 3, left: 11, top: 5 });
+  assert.deepEqual(contextMenuPlacement(119, 29, 120, 30), { width: 12, height: 3, left: 108, top: 27 });
+  assert.deepEqual(contextMenuPlacement(119, 29, 120, 30, 2), { width: 16, height: 4, left: 104, top: 26 });
+  for (const [columns, rows] of [[1, 1], [8, 2], [80, 24]]) {
+    for (const [x, y] of [[-5, -5], [columns - 1, rows - 1], [columns + 10, rows + 10]]) {
+      const menu = contextMenuPlacement(x, y, columns, rows);
+      assert.ok(menu.left >= 0 && menu.top >= 0);
+      assert.ok(menu.left + menu.width <= columns && menu.top + menu.height <= rows);
+    }
   }
 });

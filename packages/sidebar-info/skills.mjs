@@ -100,7 +100,9 @@ export async function insertSkillMention(context, skill, location) {
 export function skillScope(path, directory, home) {
   if (!path || /^[a-z][a-z\d+.-]*:/i.test(path)) return path?.startsWith("skill:") ? "Built-in" : "Other";
   const inside = (parent) => parent && (path === parent || path.startsWith(`${parent.replace(/\/$/, "")}/`));
-  if ([`${home}/.config/opencode`, `${home}/.claude/skills`, `${home}/.agents/skills`].some(inside)) return "Global";
+  // Home-level .opencode sources apply across projects too. Check them before
+  // ancestor project paths, otherwise every project below home makes them Repo.
+  if (home && [`${home}/.config/opencode`, `${home}/.opencode/skills`, `${home}/.claude/skills`, `${home}/.agents/skills`].some(inside)) return "Global";
   // Project skills can live above the session directory in a monorepo.
   for (const marker of ["/.opencode/skills/", "/.claude/skills/", "/.agents/skills/"]) {
     const index = path.indexOf(marker);
@@ -121,6 +123,17 @@ export function skillScopeColor(scope, theme) {
     case "Repo": return theme.text.feedback.info.base;
     default: return theme.text.muted;
   }
+}
+
+/** Place a compact context menu near the pointer, clamped to the render region. */
+export function contextMenuPlacement(x, y, columns, rows, actions = 1) {
+  const width = Math.max(1, Math.min(actions > 1 ? 16 : 12, columns));
+  const height = Math.max(1, Math.min(actions + 2, rows));
+  return {
+    width, height,
+    left: Math.max(0, Math.min(x + 1, columns - width)),
+    top: Math.max(0, Math.min(y, rows - height)),
+  };
 }
 
 /** Place the card beside the sidebar row, clamped to the render region. */

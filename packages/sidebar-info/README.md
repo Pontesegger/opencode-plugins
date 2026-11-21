@@ -45,11 +45,11 @@ Colors follow the active theme, including light/dark mode. The hover card's
 `Location:` label stays muted gray.
 Hovering highlights the skill name immediately in the heading's bright text
 color; leaving the row restores its usage color. The dot keeps its source color.
-Hover over a skill for 250 ms to show a card with its name prefixed by `@`, source scope, and
-description. The card disappears shortly after the pointer leaves the skill and
+Hover over a skill for 250 ms to show a card with its name prefixed by `@`, source
+scope, exact active skill path, and description. The card disappears shortly after the pointer leaves the skill and
 card, on a skill click/scroll, terminal blur, resize, or session/location changes.
 Move onto the card to scroll long descriptions. Only the description scrolls;
-the title, hide action, location, and blank line below the location stay fixed.
+the title, location, active path, and blank separator stay fixed.
 Mouse movement reporting must be enabled in the terminal.
 Left-click a skill to select its **native OpenCode autocomplete entry** at the
 prompt cursor, preserving existing input and attachments and returning focus to
@@ -72,8 +72,17 @@ these cases, use OpenCode's built-in `/skills` selector.
 Sources are classified from registry paths: Global for standard home skill
 directories, Repo for project-local paths (including ancestor project skill
 directories), Built-in for `skill://` paths, and Other for unclassified sources.
+Home-level `~/.opencode/skills` is labeled Global, even though OpenCode discovers
+it as an ancestor `.opencode` source. The labels describe storage scope, not
+precedence tiers.
 Uses OpenCode's reactive skill registry for the current session's location,
-including global, project, and built-in skills. Visibility is a user preference;
+including global, project, and built-in skills. It already resolves duplicate
+IDs according to server precedence. The row's
+indicator, hover scope/path/description, and copy source all use that selected
+definition; the existence of a different same-ID copy does not change them.
+Live registry updates switch them together, including when a repo override is
+removed and OpenCode falls back to a global or built-in definition.
+Visibility is a user preference;
 the plugin does not read skill files or scan the filesystem.
 It appends to `sidebar.content` without replacing any built-in sections.
 The host controls built-in ordering: this places the section below built-in
@@ -91,13 +100,21 @@ switches and live registry updates; Favorites and Links are unaffected.
 Right-clicks and drags are ignored. Collapsing does not change skill visibility
 metadata, usage history, or the prompt.
 
-To hide a skill, hover over its sidebar row and left-click **hide** in the
-upper-right corner of its hover card. The action is gray normally and bright
-in the theme's main text color (white in the default dark theme) while hovered.
-The action stays above the scrollable description. Right-clicks and drags do
-not hide skills.
+To hide a skill, **right-click its sidebar row** (name or source indicator) to
+open a small context menu beside the pointer, then left-click **hide**. The action
+is gray normally and bright in the theme's main text color (white in the default
+dark theme) while hovered. The hover card is informational and contains no
+hide action. Right-clicking does not select the skill or record usage; dragging
+does not open the menu or execute its action.
 
-A successful save immediately removes the row and dismisses the hover card.
+The menu stays open when the pointer leaves it. Press **Escape** or click outside
+to dismiss it without changing the draft; the outside click is consumed rather
+than activating the element behind the menu. Opening the menu dismisses hover
+details. It also closes on terminal blur, resize, collapse, session/location
+changes, or registry updates. Placement is clamped to the terminal boundaries.
+Your terminal must forward right-click events to OpenCode.
+
+A successful save immediately removes the row and dismisses the context menu.
 If saving fails, the skill remains visible and a warning is shown. Hiding does
 not select the skill, modify the draft, submit a prompt, or delete usage history.
 
@@ -112,7 +129,51 @@ independent preferences. There is currently no unhide control in the sidebar.
 This is a sidebar-only preference: hidden skills remain available to the agent,
 explicit mentions, and OpenCode's built-in selectors. The old frontmatter
 `metadata.hide-in-opencode` field is no longer used or migrated; each user
-chooses which skills to hide using the hover action.
+chooses which skills to hide using the context menu.
+
+## Copying a global skill to the repo
+
+Globally stored skills have a second context-menu action: **copy to repo**.
+Right-click the skill and left-click that action to copy it into:
+
+```text
+<current session working directory>/.agents/skills/<skill-id>/
+```
+
+The action is gray normally and bright on hover. Repo, built-in, and other
+non-global skills do not show it. Directory-based skills copy their complete
+directory, including scripts, references, binary assets, hidden files, and empty
+folders. Executable permissions are preserved and source symlinks are
+dereferenced, making the copy independent of the original. A flat Markdown
+skill is copied as `<skill-id>/SKILL.md`, without its neighboring skills.
+The original global skill is never moved, edited, or hidden.
+
+Copying runs through the **connected server's shell API**, using Node.js on that
+server, not the TUI machine's filesystem. The server must have `node` on its PATH
+and a POSIX-compatible shell. It does not use a model or submit/edit the prompt.
+Paths and IDs are shell-quoted. The destination is reserved with an exclusive
+directory creation: an existing skill folder, file, or symlink is never merged
+or overwritten, including when two copies run concurrently. Symlinked `.agents`
+or `skills` destination folders are refused to avoid writes outside the repo.
+If copying fails after destination creation, a warning identifies the possible
+partial copy; the plugin does not recursively delete it.
+
+A success toast is shown **only after OpenCode selects the repo definition**.
+To make the copied skill supersede its same-ID global definition, the action
+registers `./.agents/skills` as the last explicit source in the working directory's
+`.opencode/opencode.json(c)`. If neither file exists, it creates
+`.opencode/opencode.jsonc` with the schema and that source. Existing settings and
+JSONC comments are preserved; concurrently edited config is not overwritten.
+The plugin sends only edit offsets/new source text and a content digest to the
+server shell, never existing config contents that could contain credentials.
+
+Config saves trigger server rediscovery. The action waits for the server's
+skill registry to select `.agents/skills/<skill-id>/SKILL.md`, then refreshes the
+sidebar so its source indicator becomes Repo. It does not fake a local label or
+change global skill files. If activation fails, it reports a warning instead of
+claiming success. It avoids a server-wide reload, which would interrupt unrelated
+forms and permissions. Copying does not change visibility preferences or usage
+history.
 
 ## Installation and configuration
 
@@ -150,9 +211,19 @@ leave. The portal wrapper is absolutely positioned and zero-sized so it neither
 flows below the application nor intercepts the skill row's mouse events.
 The same test checks native-completion dispatch, mention marks, additional typing,
 attachment preservation, no auto-submission, and failed/duplicate selection
-rollback against mocked host completion. It also checks hide-action placement,
+rollback against mocked host completion. It also checks context-menu placement,
 hover colors, fixed location/separator during description scrolling,
-right-click/drag guards, failed saves, retained usage history, and
+right-click/drag guards, Escape/outside-click dismissal, failed saves, retained usage history, and
 durable visibility across session changes and new plugin instances. Verify a
 skill click and the hide action in the live TUI after `/reload` to check the
-installed host integration.
+installed host integration. The renderer test also covers global-only copy
+actions, hover colors, server/location targeting, refresh, and copy failures.
+The Node tests exercise the exact server-side copy command against temporary
+filesystem fixtures, including assets, permissions, quoting, symlinks,
+existing destinations, and concurrent copies.
+They also cover explicit source registration, real registry selection, preserved
+JSONC comments/BOMs, and concurrent config edits. For an optional regression
+against a running local OpenCode service, run `npm run test:copy:live` (optionally
+with `-- <global-skill-id>`). It copies a global skill into an owned temporary Git
+repo and asserts that the real server selects the local file without a manual
+reload, then removes only that fixture.
