@@ -19,8 +19,7 @@
   "files": ["LICENSE", "tui.tsx", "skills.mjs", "visibility.mjs"],
   "engines": { "node": ">=26.4.0" },
   "dependencies": {
-    "@opencode/plugin": "2.2.7",
-    "yaml": "^2.9.1"
+    "@opencode/plugin": "2.2.7"
   },
   "peerDependencies": {
     "@opentui/core": "^0.8.4",

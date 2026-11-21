@@ -16,14 +16,18 @@ export default Plugin.define({
     const [usage, updateUsage] = context.storage.store<{ lastClicked: Record<string, number | number[]> }>("skill-usage", {
       initial: { lastClicked: {} },
     });
+    const [visibility, updateVisibility] = context.storage.store<{ hiddenIDs: Record<string, boolean> }>("skill-visibility", {
+      initial: { hiddenIDs: {} },
+    });
 
     return context.ui.slot({
       append: "sidebar.content",
       render: (props) => {
         const location = createMemo(() => context.data.session.get(props.sessionID)?.location
           ?? context.location ?? context.data.location.default());
-        const [skills, setSkills] = createSignal<ReturnType<typeof sortedSkills>>([]);
-        const [loadingVisibility, setLoadingVisibility] = createSignal(true);
+        const skills = createMemo(() => sortedSkills(visibleSkills(
+          context.data.location.skill.list(location()) ?? [], visibility.hiddenIDs,
+        )));
         const [now, setNow] = createSignal(Date.now());
         // Let usage colors age out even when no skill is clicked or session changed.
         const clock = setInterval(() => setNow(Date.now()), 60_000);
@@ -35,6 +39,7 @@ export default Plugin.define({
         const [hoveredID, setHoveredID] = createSignal<string>();
         const [pointedID, setPointedID] = createSignal<string>();
         const [toggleHovered, setToggleHovered] = createSignal(false);
+        const [hideHovered, setHideHovered] = createSignal(false);
         const [anchor, setAnchor] = createSignal({ x: 0, y: 0 });
         const [size, setSize] = createSignal({ width: context.renderer.width, height: context.renderer.height });
         const hovered = createMemo(() => skills().find((skill) => skill.id === hoveredID()));
@@ -44,6 +49,8 @@ export default Plugin.define({
         let pressedID: string | undefined;
         let togglePressed = false;
         let inserting = false;
+        let hidePressedID: string | undefined;
+        let hiding = false;
         const keepOpen = () => {
           clearTimeout(hideTimer);
           hideTimer = undefined;
@@ -53,6 +60,8 @@ export default Plugin.define({
           clearTimeout(hoverTimer);
           hoverTimer = undefined;
           setHoveredID(undefined);
+          setHideHovered(false);
+          hidePressedID = undefined;
         };
         const leaveHover = () => {
           setPointedID(undefined);
@@ -97,6 +106,25 @@ export default Plugin.define({
             context.ui.toast.show({ message: "Skill inserted, but its usage could not be saved.", variant: "warning" });
           }
         };
+        const hideSkill = async (skill, event: MouseEvent) => {
+          const activate = hidePressedID === skill.id && event.button === 0 && !event.isDragging && !hiding;
+          hidePressedID = undefined;
+          event.preventDefault();
+          event.stopPropagation();
+          if (!activate) return;
+          hiding = true;
+          try {
+            await updateVisibility((draft) => {
+              draft.hiddenIDs[skill.id] = true;
+            });
+            setPointedID(undefined);
+            dismiss();
+          } catch {
+            context.ui.toast.show({ message: "Unable to save the hidden skill preference. The skill remains visible.", variant: "warning" });
+          } finally {
+            hiding = false;
+          }
+        };
         // Geometry changes invalidate the old row anchor; do not leave a stale card.
         const resize = (width: number, height: number) => {
           setPointedID(undefined);
@@ -130,21 +158,8 @@ export default Plugin.define({
         });
 
         createEffect(() => {
-          const currentLocation = location();
-          const registered = context.data.location.skill.list(currentLocation) ?? [];
-          const abort = new AbortController();
-          onCleanup(() => abort.abort());
+          skills();
           clearHover();
-          setSkills([]);
-          setLoadingVisibility(true);
-          void visibleSkills(registered, async (path) => {
-            const bytes = await context.client.file.read({ path, location: currentLocation }, { signal: abort.signal });
-            return new TextDecoder().decode(bytes);
-          }).then((visible) => {
-            if (abort.signal.aborted) return;
-            setSkills(sortedSkills(visible));
-            setLoadingVisibility(false);
-          });
         });
 
         const SkillRows = (rows) => (
@@ -191,7 +206,7 @@ export default Plugin.define({
               <text fg={toggleHovered() ? context.theme.text.base : context.theme.text.muted} width={3} flexShrink={0} selectable={false}><b>{expanded() ? "[-]" : "[+]"}</b></text>
             </box>
             <Show when={expanded()}>
-              <Show when={skills().length > 0} fallback={<text fg={context.theme.text.base}>{loadingVisibility() ? "Loading skills…" : status()}</text>}>
+              <Show when={skills().length > 0} fallback={<text fg={context.theme.text.base}>{status()}</text>}>
                 <box flexDirection="column" paddingLeft={2} flexShrink={0}>
                   <SkillRows skills={skills()} />
                 </box>
@@ -212,11 +227,22 @@ export default Plugin.define({
                   width={placement().width} height={placement().height} zIndex={1000}
                   border borderColor={context.theme.border.base}
                   backgroundColor={context.theme.background.raised.base}
-                  paddingLeft={1} paddingRight={1} flexDirection="column"
-                  onMouseOver={keepOpen} onMouseOut={leaveHover}>
+                   paddingLeft={1} paddingRight={1} flexDirection="column"
+                   onMouseOver={keepOpen} onMouseOut={leaveHover}>
+                  <box flexDirection="row" flexShrink={0} gap={1}>
+                    <text fg={context.theme.text.base} flexGrow={1} flexShrink={1} minWidth={0} wrapMode="word"><b>@{skill().name}</b></text>
+                    <text fg={hideHovered() ? context.theme.text.base : context.theme.text.muted}
+                      width={4} height={1} flexShrink={0} selectable={false}
+                      onMouseOver={() => { keepOpen(); setHideHovered(true); }}
+                      onMouseOut={() => { setHideHovered(false); hidePressedID = undefined; }}
+                      onMouseDown={(event) => {
+                        hidePressedID = event.button === 0 ? skill().id : undefined;
+                        event.preventDefault(); event.stopPropagation();
+                      }}
+                      onMouseUp={(event) => { void hideSkill(skill(), event); }}>hide</text>
+                  </box>
                   <scrollbox flexGrow={1} minHeight={0} scrollX={false} scrollY={true}
-                    contentOptions={{ flexDirection: "column", gap: 1 }}>
-                    <text fg={context.theme.text.base} wrapMode="word" flexShrink={0}><b>@{skill().name}</b></text>
+                     contentOptions={{ flexDirection: "column", gap: 1 }}>
                     <text fg={context.theme.text.muted} wrapMode="word" flexShrink={0}>
                       Location: <span style={{ fg: sourceColor(skill()) }}>{scope(skill())}</span>
                     </text>

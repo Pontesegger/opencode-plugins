@@ -72,9 +72,8 @@ Sources are classified from registry paths: Global for standard home skill
 directories, Repo for project-local paths (including ancestor project skill
 directories), Built-in for `skill://` paths, and Other for unclassified sources.
 Uses OpenCode's reactive skill registry for the current session's location,
-including global, project, and built-in skills. Reads frontmatter only from
-registered skill files through the connected server's file API; no filesystem
-scanning is needed, and remote sessions do not read the TUI machine's disk.
+including global, project, and built-in skills. Visibility is a user preference;
+the plugin does not read skill files or scan the filesystem.
 It appends to `sidebar.content` without replacing any built-in sections.
 The host controls built-in ordering: this places the section below built-in
 sidebar content, not necessarily immediately after Context.
@@ -91,30 +90,28 @@ switches and live registry updates; Favorites and Links are unaffected.
 Right-clicks and drags are ignored. Collapsing does not change skill visibility
 metadata, usage history, or the prompt.
 
-To hide a skill from this sidebar, add a boolean `hide-in-opencode` flag under
-`metadata` in its YAML frontmatter:
+To hide a skill, hover over its sidebar row and left-click **hide** in the
+upper-right corner of its hover card. The action is gray normally and bright
+in the theme's main text color (white in the default dark theme) while hovered.
+The action stays above the scrollable description. Right-clicks and drags do
+not hide skills.
 
-```markdown
----
-name: Example
-description: An example skill
-metadata:
-  hide-in-opencode: true
----
+A successful save immediately removes the row and dismisses the hover card.
+If saving fails, the skill remains visible and a warning is shown. Hiding does
+not select the skill, modify the draft, submit a prompt, or delete usage history.
 
-Skill instructions go here.
-```
+Hidden skills are saved in OpenCode's user-level durable TUI plugin storage
+under `skill-visibility`, as a `hiddenIDs` map of invocable skill IDs to `true`.
+Preferences persist across sessions, projects, plugin reloads, and OpenCode
+restarts, and synchronize across TUI instances. The same ID stays hidden even
+if its name or path changes, or it temporarily disappears from the registry.
+Global, repo, and built-in skills can all be hidden. Other users keep their own
+independent preferences. There is currently no unhide control in the sidebar.
 
-Only the boolean `true` hides the skill. Omit the field or set it to `false` to
-keep the existing display, sorting, hover behavior, and usage colors. A quoted
-`"true"` is a string and does not hide it. This is a sidebar-only setting: the
-skill remains available to the agent, explicit mentions, and OpenCode's built-in
-selectors. Stored usage history is retained when a skill is hidden.
-
-Visibility refreshes when the skill registry updates or the plugin reloads; use
-`/reload` to force a refresh after editing frontmatter. Built-in/virtual skills,
-unreadable files, and invalid frontmatter remain visible. No skill content is
-logged or added to the conversation by these metadata reads.
+This is a sidebar-only preference: hidden skills remain available to the agent,
+explicit mentions, and OpenCode's built-in selectors. The old frontmatter
+`metadata.hide-in-opencode` field is no longer used or migrated; each user
+chooses which skills to hide using the hover action.
 
 ## Installation and configuration
 
@@ -152,5 +149,8 @@ leave. The portal wrapper is absolutely positioned and zero-sized so it neither
 flows below the application nor intercepts the skill row's mouse events.
 The same test checks native-completion dispatch, mention marks, additional typing,
 attachment preservation, no auto-submission, and failed/duplicate selection
-rollback against mocked host completion. Verify a skill click in the live TUI
-after `/reload` to check the installed host integration.
+rollback against mocked host completion. It also checks hide-action placement,
+hover colors, right-click/drag guards, failed saves, retained usage history, and
+durable visibility across session changes and new plugin instances. Verify a
+skill click and the hide action in the live TUI after `/reload` to check the
+installed host integration.

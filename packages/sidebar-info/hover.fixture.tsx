@@ -28,7 +28,6 @@ const skills = [
   { id: "hidden", name: "Hidden skill", path: "/shared/skills/hidden/SKILL.md" },
 ];
 const [registeredSkills, setRegisteredSkills] = createSignal(skills);
-let hideAlpha = false;
 const background = RGBA.fromHex("#222222");
 const location = { directory: "/home/test/project" };
 let prompt: TextareaRenderable;
@@ -45,6 +44,7 @@ let savedUsage: { lastClicked: Record<string, number | number[]> } = { lastClick
   builtin: [Date.now() - 1000, Date.now() - 2000],
   long: [Date.now() - 1000, Date.now() - 2000, Date.now() - 3000],
 } };
+let savedVisibility = { hiddenIDs: { hidden: true } as Record<string, boolean> };
 const warnings: string[] = [];
 let failWrites = false;
 
@@ -52,18 +52,15 @@ function Skills() {
   let slot;
   plugin.setup({
     renderer: useRenderer(), options: {}, location,
-    client: { file: { read: async ({ path, location: requestedLocation }) => {
-      assert.deepEqual(requestedLocation, location, "Read metadata from the session's connected server location");
-      const hidden = path.includes("/hidden/") || (path === skill.path && hideAlpha);
-      return new TextEncoder().encode(`---\nmetadata:\n  hide-in-opencode: ${hidden}\n---\nBody`);
-    } } },
+    client: { file: { read: async () => { throw new Error("Visibility must not read skill files"); } } },
     storage: { store: (key, { initial }) => {
-      assert.equal(key, "skill-usage");
-      const [state, setState] = createStore(structuredClone(savedUsage ?? initial));
+      assert.ok(["skill-usage", "skill-visibility"].includes(key));
+      const [state, setState] = createStore(structuredClone((key === "skill-usage" ? savedUsage : savedVisibility) ?? initial));
       return [state, async (mutation) => {
         if (failWrites) throw new Error("Disk unavailable");
         setState(produce(mutation));
-        savedUsage = JSON.parse(JSON.stringify(state));
+        if (key === "skill-usage") savedUsage = JSON.parse(JSON.stringify(state));
+        else savedVisibility = JSON.parse(JSON.stringify(state));
       }];
     } },
     theme: {
@@ -132,7 +129,7 @@ try {
     assert.equal(frame.split("Alpha").length - 1, 1, "Skills are not duplicated");
   };
   assertSingleList();
-  assert.ok(!setup.captureCharFrame().includes("Hidden skill"), "True metadata hides the skill row");
+   assert.ok(!setup.captureCharFrame().includes("Hidden skill"), "Saved user preference hides the skill row on startup");
   const findText = (node, text) => node.plainText === text ? node
     : node.getChildren().map((child) => findText(child, text)).find(Boolean);
   const skillRow = findText(setup.renderer.root, "Alpha");
@@ -173,7 +170,28 @@ try {
   assert.deepEqual(sourceLine.fg, muted, "Location label stays muted gray");
   assert.deepEqual(sourceLine.textNode.toChunks().find((chunk) => chunk.text === "Repo")?.fg, blue,
     "Location value matches the skill's source color");
-  assert.ok(frame.includes("Main transcript"), "Hover must not displace application layout");
+   assert.ok(frame.includes("Main transcript"), "Hover must not displace application layout");
+   const hide = findText(setup.renderer.root, "hide");
+   const hoverTitle = findText(setup.renderer.root, "@Alpha");
+   assert.ok(hide, "Hover card offers a hide action");
+   assert.equal(hide.y, hoverTitle.y, "Hide shares the top title row");
+   assert.ok(hide.x > hoverTitle.x, "Hide is in the upper-right corner");
+   assert.deepEqual(hide.fg, muted, "Hide text is gray by default");
+   await setup.mockMouse.moveTo(hide.x + 1, hide.y);
+   await setup.renderOnce();
+   assert.deepEqual(hide.fg, white, "Hide text turns bright white on hover");
+   await wait(200);
+   await setup.renderOnce();
+   assert.ok(findText(setup.renderer.root, "hide"), "Hover card stays open over the hide action");
+   await setup.mockMouse.click(hide.x + 1, hide.y, 2);
+   await setup.renderOnce();
+   assert.equal(savedVisibility.hiddenIDs.alpha, undefined, "Right-click cannot hide a skill");
+   await setup.mockMouse.pressDown(hide.x + 1, hide.y);
+   await setup.mockMouse.moveTo(hoverTitle.x, hoverTitle.y);
+   await setup.mockMouse.release(hoverTitle.x, hoverTitle.y);
+   await setup.renderOnce();
+   assert.equal(savedVisibility.hiddenIDs.alpha, undefined, "Dragging off hide does not hide a skill");
+   assert.deepEqual(hide.fg, muted, "Hide returns to gray on mouse leave");
   const suffixColumn = lines[row].lastIndexOf("●");
   await setup.mockMouse.moveTo(suffixColumn, row);
   await wait(350);
@@ -319,15 +337,10 @@ try {
   await setup.renderOnce();
 
   const historyBeforeAging = structuredClone(savedUsage);
-  hideAlpha = true;
-  setRegisteredSkills([...skills]);
-  await setup.renderOnce();
-  assert.ok(!setup.captureCharFrame().includes("Alpha"), "Registry updates re-read visibility metadata");
-  assert.deepEqual(savedUsage, historyBeforeAging, "Hiding does not delete usage history");
-  hideAlpha = false;
-  setRegisteredSkills([...skills]);
-  await setup.renderOnce();
-  assert.ok(setup.captureCharFrame().includes("Alpha"), "False restores the existing skill display");
+   setRegisteredSkills([...skills]);
+   await setup.renderOnce();
+   assert.ok(!setup.captureCharFrame().includes("Hidden skill"), "Registry updates retain saved hiding preferences");
+   assert.deepEqual(savedUsage, historyBeforeAging, "Visibility refresh does not delete usage history");
   const future = originalNow() + 7 * 24 * 60 * 60 * 1000;
   Date.now = () => future;
   setMounted(false);
@@ -425,8 +438,49 @@ try {
   assertSingleList();
   assert.equal(prompt.plainText, draft, "Toggle does not modify the prompt");
   assert.equal(selectedSkills.length, selections, "Toggle does not select skills");
-  assert.deepEqual(savedUsage, historyBeforeAging, "Collapse/expand preserves usage history");
-  console.log("PASS: Skills hover, insertion, visibility and usage regressions; full-row collapse/expand (title, empty space, padding and icon), right padding and resize, hover cleanup, live updates while collapsed.");
+   assert.deepEqual(savedUsage, historyBeforeAging, "Collapse/expand preserves usage history");
+   const openAlphaCard = async () => {
+     await setup.mockMouse.moveTo(0, 0);
+     await setup.renderOnce();
+     const row = findText(setup.renderer.root, "Alpha");
+     await setup.mockMouse.moveTo(row.x, row.y);
+     await wait(350);
+     await setup.renderOnce();
+     const action = findText(setup.renderer.root, "hide");
+     assert.ok(action, "Hide is accessible after resize");
+     return action;
+   };
+   failWrites = true;
+   const failedHide = await openAlphaCard();
+   await setup.mockMouse.click(failedHide.x + 1, failedHide.y);
+   await wait(50);
+   await setup.renderOnce();
+   assert.equal(savedVisibility.hiddenIDs.alpha, undefined, "Failed storage does not persist hiding");
+   assert.ok(findText(setup.renderer.root, "Alpha"), "Failed storage leaves the skill visible");
+   assert.match(warnings.at(-1), /Unable to save the hidden skill preference/);
+   failWrites = false;
+   const action = await openAlphaCard();
+   await setup.mockMouse.click(action.x + 1, action.y);
+   await wait(50);
+   await setup.renderOnce();
+   assert.equal(savedVisibility.hiddenIDs.alpha, true, "Left-click persists the hidden skill ID");
+   assert.ok(!findText(setup.renderer.root, "Alpha"), "Hiding immediately removes the sidebar row");
+   assert.ok(!findText(setup.renderer.root, "hide"), "Hiding dismisses the hover card");
+   assert.equal(prompt.plainText, draft, "Hiding does not modify the draft");
+   assert.equal(selectedSkills.length, selections, "Hiding does not invoke or select the skill");
+   assert.equal(submits, 0, "Hiding never submits the prompt");
+   assert.deepEqual(savedUsage, historyBeforeAging, "Hiding retains usage history");
+   setSessionID("hidden-session");
+   setRegisteredSkills([...skills]);
+   await setup.renderOnce();
+   assert.ok(!findText(setup.renderer.root, "Alpha"), "Hiding survives session and registry changes");
+   setMounted(false);
+   await setup.renderOnce();
+   setMounted(true);
+   await setup.renderOnce();
+   assert.ok(!findText(setup.renderer.root, "Alpha"), "A new plugin instance restores durable visibility preferences");
+   assert.ok(findText(setup.renderer.root, "Builtin"), "Other skills remain visible after reload");
+   console.log("PASS: Skills hover, insertion, usage, collapse/expand and durable user hiding; hide placement, hover colors, right-click/drag guards, failed saves, reload and session persistence.");
 } finally {
   Date.now = originalNow;
   setup.renderer.destroy();
