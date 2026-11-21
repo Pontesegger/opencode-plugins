@@ -241,11 +241,12 @@ export default Plugin.define({
                       }}
                       onMouseUp={(event) => { void hideSkill(skill(), event); }}>hide</text>
                   </box>
-                  <scrollbox flexGrow={1} minHeight={0} scrollX={false} scrollY={true}
-                     contentOptions={{ flexDirection: "column", gap: 1 }}>
-                    <text fg={context.theme.text.muted} wrapMode="word" flexShrink={0}>
-                      Location: <span style={{ fg: sourceColor(skill()) }}>{scope(skill())}</span>
-                    </text>
+                   <text fg={context.theme.text.muted} wrapMode="word" flexShrink={0}>
+                     Location: <span style={{ fg: sourceColor(skill()) }}>{scope(skill())}</span>
+                   </text>
+                   <box height={1} flexShrink={0} />
+                   <scrollbox flexGrow={1} minHeight={0} scrollX={false} scrollY={true}
+                     contentOptions={{ flexDirection: "column" }}>
                     <text fg={context.theme.text.muted} wrapMode="word" flexShrink={0}>
                       {skill().description?.trim() || "No description available."}
                     </text>

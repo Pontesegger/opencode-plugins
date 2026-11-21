@@ -48,8 +48,9 @@ color; leaving the row restores its usage color. The dot keeps its source color.
 Hover over a skill for 250 ms to show a card with its name prefixed by `@`, source scope, and
 description. The card disappears shortly after the pointer leaves the skill and
 card, on a skill click/scroll, terminal blur, resize, or session/location changes.
-Move onto the card to scroll long descriptions. Mouse movement reporting must be
-enabled in the terminal.
+Move onto the card to scroll long descriptions. Only the description scrolls;
+the title, hide action, location, and blank line below the location stay fixed.
+Mouse movement reporting must be enabled in the terminal.
 Left-click a skill to select its **native OpenCode autocomplete entry** at the
 prompt cursor, preserving existing input and attachments and returning focus to
 the prompt. This attaches the skill to the draft using the host's internal skill
@@ -150,7 +151,8 @@ flows below the application nor intercepts the skill row's mouse events.
 The same test checks native-completion dispatch, mention marks, additional typing,
 attachment preservation, no auto-submission, and failed/duplicate selection
 rollback against mocked host completion. It also checks hide-action placement,
-hover colors, right-click/drag guards, failed saves, retained usage history, and
+hover colors, fixed location/separator during description scrolling,
+right-click/drag guards, failed saves, retained usage history, and
 durable visibility across session changes and new plugin instances. Verify a
 skill click and the hide action in the live TUI after `/reload` to check the
 installed host integration.

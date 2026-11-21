@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { testRender, useRenderer } from "@opentui/solid";
-import { RGBA, type TextareaRenderable } from "@opentui/core";
+import { RGBA, ScrollBoxRenderable, type TextareaRenderable } from "@opentui/core";
 import { homedir } from "node:os";
 import { createSignal, Show } from "solid-js";
 import { createStore, produce } from "solid-js/store";
@@ -9,7 +9,8 @@ import plugin from "./tui";
 const skill = {
   id: "alpha", name: "Alpha",
   path: "/home/test/project/.opencode/skills/alpha/SKILL.md",
-  description: "A distinctive hover description.",
+   description: "A distinctive hover description.\n" + Array.from({ length: 20 },
+     (_, index) => `Long skill description line ${index + 1}.`).join("\n"),
 };
 const white = RGBA.fromHex("#ffffff");
 const muted = RGBA.fromHex("#888888");
@@ -192,6 +193,26 @@ try {
    await setup.renderOnce();
    assert.equal(savedVisibility.hiddenIDs.alpha, undefined, "Dragging off hide does not hide a skill");
    assert.deepEqual(hide.fg, muted, "Hide returns to gray on mouse leave");
+   const findScrollBox = (node): ScrollBoxRenderable | undefined => node instanceof ScrollBoxRenderable ? node
+     : node.getChildren().map(findScrollBox).find(Boolean);
+   const descriptionScroll = findScrollBox(hoverTitle.parent.parent);
+   assert.ok(descriptionScroll, "Long descriptions have a scrollable region");
+   const sourceY = sourceLine.y;
+   assert.equal(descriptionScroll.y, sourceY + sourceLine.height + 1,
+     "Location and one blank line sit above the description's scrollable region");
+   await setup.mockMouse.moveTo(descriptionScroll.x + 1, descriptionScroll.y + 1);
+   for (let step = 0; step < 8; step++) {
+     await setup.mockMouse.scroll(descriptionScroll.x + 1, descriptionScroll.y + 1, "down");
+   }
+   await setup.renderOnce();
+   assert.ok(descriptionScroll.scrollTop > 0, "Mouse wheel scrolls the long description");
+   const scrolledFrame = setup.captureCharFrame();
+   assert.ok(!scrolledFrame.includes("A distinctive hover description."), "Description contents actually move");
+   assert.ok(scrolledFrame.split("\n")[sourceY].includes("Location: Repo"), "Location remains visible at its original row");
+   assert.ok(!scrolledFrame.split("\n")[sourceY + 1].includes("Long skill description"), "Blank separator stays above the scrolling text");
+   assert.ok(findText(setup.renderer.root, "hide"), "Hide action remains available while scrolling");
+   descriptionScroll.scrollTo(0);
+   await setup.renderOnce();
   const suffixColumn = lines[row].lastIndexOf("●");
   await setup.mockMouse.moveTo(suffixColumn, row);
   await wait(350);
