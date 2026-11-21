@@ -26,9 +26,11 @@ The session sidebar must be visible to see the section.
 
 ## Behavior
 
-- The header's ASCII **[-]** is gray by default and bright white on hover, with
-  one blank column from the right edge. Left-click to collapse all link rows and
-  hover cards, leaving only the header with **[+]** to expand again. Right-clicks
+- The header's ASCII **[-]** is gray by default and bright white when any part of
+  the header is hovered, with one blank column from the right edge. Left-click
+  anywhere on the header—the title, empty space, or control—to collapse all link
+  rows and hover cards, leaving only the header with **[+]**; click the header
+  again to expand. Right-clicks
   and drags are ignored. Links starts expanded and toggles independently of
   Favorites and Skills. Session switches, live posts, and reconnects preserve
   the collapsed state; expanding displays the latest links. Sessions with no

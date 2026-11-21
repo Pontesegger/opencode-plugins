@@ -350,6 +350,34 @@ try {
   await setup.renderOnce();
   assert.deepEqual(icon.fg, muted, "Control returns to gray when the pointer leaves");
   assert.equal(icon.x + icon.width, 119, "Icon leaves one blank column at the right edge");
+  const header = findText(setup.renderer.root, "@ Skills");
+  for (const [label, x] of [["title", header.x + 2], ["empty space", icon.x - 2], ["right padding", icon.x + icon.width]] as const) {
+    await setup.mockMouse.moveTo(x, header.y);
+    await setup.renderOnce();
+    assert.deepEqual(icon.fg, white, `Hovering the ${label} highlights the toggle`);
+    await setup.mockMouse.click(x, header.y, 2);
+    await setup.renderOnce();
+    assertSingleList();
+    await setup.mockMouse.pressDown(x, header.y);
+    await setup.mockMouse.moveTo(0, 0);
+    await setup.mockMouse.release(0, 0);
+    await setup.renderOnce();
+    assertSingleList();
+    await setup.mockMouse.pressDown(0, 0);
+    await setup.mockMouse.moveTo(x, header.y);
+    await setup.mockMouse.release(x, header.y);
+    await setup.renderOnce();
+    assertSingleList();
+    await setup.mockMouse.click(x, header.y);
+    await setup.renderOnce();
+    assert.ok(findText(setup.renderer.root, "[+]") && !findText(setup.renderer.root, "Alpha"), `Clicking the ${label} collapses exactly once`);
+    await setup.mockMouse.click(x, header.y, 2);
+    await setup.renderOnce();
+    assert.ok(findText(setup.renderer.root, "[+]"), `Right-clicking the ${label} does not expand`);
+    await setup.mockMouse.click(x, header.y);
+    await setup.renderOnce();
+    assertSingleList();
+  }
   await setup.mockMouse.click(icon.x, icon.y, 2);
   await setup.renderOnce();
   assertSingleList();
@@ -398,7 +426,7 @@ try {
   assert.equal(prompt.plainText, draft, "Toggle does not modify the prompt");
   assert.equal(selectedSkills.length, selections, "Toggle does not select skills");
   assert.deepEqual(savedUsage, historyBeforeAging, "Collapse/expand preserves usage history");
-  console.log("PASS: Skills hover, insertion, visibility and usage regressions; ASCII collapse/expand controls, right padding and resize, header-only collapse, hover cleanup, live updates while collapsed.");
+  console.log("PASS: Skills hover, insertion, visibility and usage regressions; full-row collapse/expand (title, empty space, padding and icon), right padding and resize, hover cleanup, live updates while collapsed.");
 } finally {
   Date.now = originalNow;
   setup.renderer.destroy();

@@ -81,10 +81,11 @@ sidebar content, not necessarily immediately after Context.
 
 ## Hiding individual skills
 
-To collapse the entire section, left-click the ASCII **[-]** (gray by default,
-bright white on hover) at the right
-of its header (followed by one blank column). Only the header remains, with
-**[+]** to expand again. This also dismisses hover cards and hides loading/empty
+To collapse the entire section, left-click anywhere on its header—the title,
+empty space, or ASCII **[-]** control. The control is gray by default and bright
+white when any part of the header is hovered, with one blank column at the right
+edge. Only the header remains, with **[+]**; click the header again to expand.
+This also dismisses hover cards and hides loading/empty
 messages. The section starts expanded and retains its state across session
 switches and live registry updates; Favorites and Links are unaffected.
 Right-clicks and drags are ignored. Collapsing does not change skill visibility

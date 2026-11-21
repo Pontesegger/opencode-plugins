@@ -14,9 +14,10 @@ Adds a **Favorites** heading to the right-hand session sidebar with these rows:
 - `/compact`
 - **Show all commands**, separated from `/compact` by one empty line.
 
-The header has an ASCII **[-]** control, gray by default and bright white on hover,
-with one blank column at the right edge. Left-click it to collapse all rows and spacing,
-leaving only the header; click **[+]** to expand again. Right-clicks and drags are
+The header has an ASCII **[-]** control, gray by default and bright white when any
+part of the header is hovered, with one blank column at the right edge. Left-click
+anywhere on the header—the title, empty space, or control—to collapse all rows and
+spacing, leaving only the header with **[+]**; click the header again to expand. Right-clicks and drags are
 ignored. The section starts expanded, retains its state while switching sessions,
 and toggles independently of Skills and Links without changing the prompt.
 

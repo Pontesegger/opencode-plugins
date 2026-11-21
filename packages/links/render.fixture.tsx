@@ -216,6 +216,34 @@ try {
   await frame();
   assert.deepEqual(icon.fg, RGBA.fromHex("#888888"), "Control returns to gray when the pointer leaves");
   assert.equal(icon.x + icon.width, 99, "One blank column follows the icon");
+  const header = findText(setup.renderer.root, "Links");
+  for (const [label, x] of [["title", header.x + 2], ["empty space", icon.x - 2], ["right padding", icon.x + icon.width]] as const) {
+    await setup.mockMouse.moveTo(x, header.y);
+    await frame();
+    assert.deepEqual(icon.fg, RGBA.fromHex("#ffffff"), `Hovering the ${label} highlights the toggle`);
+    await setup.mockMouse.click(x, header.y, 2);
+    await frame();
+    assert.ok(findText(setup.renderer.root, "Collapsible link"), `Right-clicking the ${label} does not collapse`);
+    await setup.mockMouse.pressDown(x, header.y);
+    await setup.mockMouse.moveTo(0, 0);
+    await setup.mockMouse.release(0, 0);
+    await frame();
+    assert.ok(findText(setup.renderer.root, "Collapsible link"), `Dragging off the ${label} does not collapse`);
+    await setup.mockMouse.pressDown(0, 0);
+    await setup.mockMouse.moveTo(x, header.y);
+    await setup.mockMouse.release(x, header.y);
+    await frame();
+    assert.ok(findText(setup.renderer.root, "Collapsible link"), `Dragging onto the ${label} does not collapse`);
+    await setup.mockMouse.click(x, header.y);
+    await frame();
+    assert.ok(findText(setup.renderer.root, "[+]") && !findText(setup.renderer.root, "Collapsible link"), `Clicking the ${label} collapses exactly once`);
+    await setup.mockMouse.click(x, header.y, 2);
+    await frame();
+    assert.ok(findText(setup.renderer.root, "[+]"), `Right-clicking the ${label} does not expand`);
+    await setup.mockMouse.click(x, header.y);
+    await frame();
+    assert.ok(findText(setup.renderer.root, "Collapsible link"), `Clicking the ${label} expands again`);
+  }
   await setup.mockMouse.click(icon.x, icon.y, 2);
   await frame();
   assert.ok(findText(setup.renderer.root, "Collapsible link"), "Right-click does not collapse Links");
@@ -266,7 +294,7 @@ try {
   setup.renderer.destroy();
   assert.equal(listeners.size, 0);
   assert.equal(reconnects.size, 0);
-  console.log("PASS: Links updates, styling, hyperlinks, session isolation and cleanup; ASCII collapse/expand controls, right padding and resize, header-only collapse, hover cleanup, live updates while collapsed.");
+  console.log("PASS: Links updates, styling, hyperlinks, session isolation and cleanup; full-row collapse/expand (title, empty space, padding and icon), right padding and resize, hover cleanup, live updates while collapsed.");
 } finally {
   if (!setup.renderer.isDestroyed) setup.renderer.destroy();
 }

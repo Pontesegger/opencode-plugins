@@ -123,6 +123,33 @@ try {
   assert.equal(icon.x + icon.width, 89, "One blank column follows the control");
   const heading = findText(setup.renderer.root, "Favorites");
   const originalHeight = heading.parent.parent.height;
+  for (const [label, x] of [["title", heading.x + 2], ["empty space", icon.x - 2], ["right padding", icon.x + icon.width]] as const) {
+    await setup.mockMouse.moveTo(x, heading.y);
+    await setup.renderOnce();
+    assert.deepEqual(icon.fg, RGBA.fromHex("#ffffff"), `Hovering the ${label} highlights the toggle`);
+    await setup.mockMouse.click(x, heading.y, 2);
+    await setup.renderOnce();
+    assert.ok(findText(setup.renderer.root, "/clear"), `Right-clicking the ${label} does not collapse`);
+    await setup.mockMouse.pressDown(x, heading.y);
+    await setup.mockMouse.moveTo(0, 10);
+    await setup.mockMouse.release(0, 10);
+    await setup.renderOnce();
+    assert.ok(findText(setup.renderer.root, "/clear"), `Dragging off the ${label} does not collapse`);
+    await setup.mockMouse.pressDown(0, 10);
+    await setup.mockMouse.moveTo(x, heading.y);
+    await setup.mockMouse.release(x, heading.y);
+    await setup.renderOnce();
+    assert.ok(findText(setup.renderer.root, "/clear"), `Dragging onto the ${label} does not collapse`);
+    await setup.mockMouse.click(x, heading.y);
+    await setup.renderOnce();
+    assert.ok(findText(setup.renderer.root, "[+]") && !findText(setup.renderer.root, "/clear"), `Clicking the ${label} collapses exactly once`);
+    await setup.mockMouse.click(x, heading.y, 2);
+    await setup.renderOnce();
+    assert.ok(findText(setup.renderer.root, "[+]"), `Right-clicking the ${label} does not expand`);
+    await setup.mockMouse.click(x, heading.y);
+    await setup.renderOnce();
+    assert.ok(findText(setup.renderer.root, "/clear"), `Clicking the ${label} expands again`);
+  }
   await setup.mockMouse.click(icon.x, icon.y, 2);
   await setup.renderOnce();
   assert.ok(findText(setup.renderer.root, "/clear"), "Right-click does not collapse");
@@ -157,7 +184,7 @@ try {
   await setup.renderOnce();
   assert.ok(findText(setup.renderer.root, "/clear") && findText(setup.renderer.root, "Show all commands"), "Expand restores all entries");
   assert.equal(heading.parent.parent.height, originalHeight, "Expand restores the original section height");
-  console.log("PASS: Favorites dispatch and draft preservation; ASCII collapse/expand controls, right padding and resize, header-only collapse, restored entries, ignored right-clicks/drags.");
+  console.log("PASS: Favorites dispatch and draft preservation; full-row collapse/expand (title, empty space, padding and icon), right padding and resize, restored entries, ignored right-clicks/drags.");
 } finally {
   setup.renderer.destroy();
 }

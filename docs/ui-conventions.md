@@ -8,7 +8,9 @@ informative colors rather than making unrelated status indicators identical.
 - Favorites rows, sidebar `[-]` / `[+]` controls, and the Context toggle use the
   theme's muted gray normally and bright text color on hover.
 - All sidebar section headers retain their bright, bold titles. Toggle controls
-  occupy three columns, with one blank column at the right edge.
+  occupy three columns, with one blank column at the right edge. The whole header
+  row (title, empty space, control, and right padding) toggles the section on
+  left-click and highlights the toggle control on hover.
 - Keep the original two empty rows between sidebar sections. Do not add divider
   glyphs, borders, or change the host's sidebar title.
 

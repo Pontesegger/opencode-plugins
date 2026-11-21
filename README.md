@@ -99,8 +99,9 @@ This simulates mouse movement and clicks, checks hover-card visibility and
 dismissal, and verifies that clicking inserts a skill without submitting a prompt.
 The Favorites renderer test verifies one-click submission, draft replacement,
 and ignored right-clicks/drags with mocked host dispatch. Favorites, Skills, and
-Links renderer tests also verify gray ASCII header controls with bright-white hover,
-one-column right padding, header-only collapse, expansion, resize, and hover cleanup where applicable.
+Links renderer tests also verify gray ASCII header controls with bright-white hover
+across the full header row, clicks on titles, empty space, padding and controls,
+ignored right-clicks/drags, header-only collapse, expansion, resize, and hover cleanup where applicable.
 GitHub Actions runs
 the Node/package checks and all six Bun renderer tests. The Context test checks
 rightmost alignment while idle/busy, with activity and standard-footer toggles,

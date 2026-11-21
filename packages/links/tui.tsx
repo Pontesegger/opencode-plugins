@@ -96,23 +96,23 @@ export default Plugin.define({
         return (
           <Show when={links().length > 0}>
             <box width="100%" flexDirection="column" flexShrink={0} marginTop={1}>
-              <box width="100%" height={1} flexDirection="row" flexShrink={0} paddingRight={1}>
-                <text fg={context.theme.text.base} flexGrow={1} flexShrink={1} minWidth={0} height={1}><b>Links</b></text>
-                <text fg={toggleHovered() ? context.theme.text.base : context.theme.text.muted} width={3} flexShrink={0} selectable={false}
-                  onMouseOver={() => setToggleHovered(true)}
-                  onMouseOut={() => { setToggleHovered(false); togglePressed = false; }}
-                  onMouseDown={(event) => {
-                    togglePressed = event.button === 0;
-                    event.preventDefault(); event.stopPropagation();
-                  }}
-                  onMouseUp={(event) => {
-                    const activate = togglePressed && event.button === 0 && !event.isDragging;
-                    togglePressed = false;
-                    event.preventDefault(); event.stopPropagation();
-                    if (!activate) return;
-                    clearHover();
-                    setExpanded((value) => !value);
-                  }}><b>{expanded() ? "[-]" : "[+]"}</b></text>
+              <box width="100%" height={1} flexDirection="row" flexShrink={0} paddingRight={1}
+                onMouseOver={() => setToggleHovered(true)}
+                onMouseOut={() => { setToggleHovered(false); togglePressed = false; }}
+                onMouseDown={(event) => {
+                  togglePressed = event.button === 0;
+                  event.preventDefault(); event.stopPropagation();
+                }}
+                onMouseUp={(event) => {
+                  const activate = togglePressed && event.button === 0 && !event.isDragging;
+                  togglePressed = false;
+                  event.preventDefault(); event.stopPropagation();
+                  if (!activate) return;
+                  clearHover();
+                  setExpanded((value) => !value);
+                }}>
+                <text fg={context.theme.text.base} flexGrow={1} flexShrink={1} minWidth={0} height={1} selectable={false}><b>Links</b></text>
+                <text fg={toggleHovered() ? context.theme.text.base : context.theme.text.muted} width={3} flexShrink={0} selectable={false}><b>{expanded() ? "[-]" : "[+]"}</b></text>
               </box>
               <Show when={expanded()}>
                 <box flexDirection="column" paddingLeft={2} flexShrink={0}>
