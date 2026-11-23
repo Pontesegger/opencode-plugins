@@ -32,3 +32,12 @@ test("retains preferences for temporarily absent skills and handles empty lists"
   assert.deepEqual(visibleSkills([{ id: "toString" }, { id: "constructor" }], {}),
     [{ id: "toString" }, { id: "constructor" }]);
 });
+
+test("show all temporarily bypasses hiding without changing saved preferences", () => {
+  const skills = [{ id: "hidden" }, { id: "visible" }];
+  const hidden = { hidden: true, absent: true };
+  assert.deepEqual(visibleSkills(skills, hidden, true), skills);
+  assert.deepEqual(visibleSkills(skills, hidden, false), [skills[1]]);
+  assert.deepEqual(hidden, { hidden: true, absent: true });
+  assert.deepEqual(visibleSkills([], hidden, true), []);
+});

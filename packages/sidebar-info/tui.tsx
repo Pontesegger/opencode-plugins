@@ -11,6 +11,7 @@ export default Plugin.define({
   id: "local.sidebar-info",
   setup(context) {
     const [expanded, setExpanded] = createSignal(true);
+    const [showAll, setShowAll] = createSignal(false);
     const title = typeof context.options.title === "string"
       ? context.options.title
       : "Skills";
@@ -29,19 +30,21 @@ export default Plugin.define({
         const skills = createMemo(() => sortedSkills(visibleSkills(
           // The server registry already resolves same-ID source precedence.
           // Use its selected definition for the row, hover and copy action.
-          context.data.location.skill.list(location()) ?? [], visibility.hiddenIDs,
+          context.data.location.skill.list(location()) ?? [], visibility.hiddenIDs, showAll(),
         )));
         const [now, setNow] = createSignal(Date.now());
         // Let usage colors age out even when no skill is clicked or session changed.
         const clock = setInterval(() => setNow(Date.now()), 60_000);
         onCleanup(() => clearInterval(clock));
         const usageColor = (skill) => skillUsageColor(recentSkillUseCount(usage.lastClicked[skill.id], now()), context.theme);
+        const isHidden = (skill) => visibility.hiddenIDs[skill.id] === true;
         const scope = (skill) => skillScope(skill.path, location()?.directory, homedir());
         const sourceColor = (skill) => skillScopeColor(scope(skill), context.theme);
         const [status, setStatus] = createSignal("Loading skills…");
         const [hoveredID, setHoveredID] = createSignal<string>();
         const [pointedID, setPointedID] = createSignal<string>();
         const [toggleHovered, setToggleHovered] = createSignal(false);
+        const [allHovered, setAllHovered] = createSignal(false);
         const [hideHovered, setHideHovered] = createSignal(false);
         const [copyHovered, setCopyHovered] = createSignal(false);
         const [menu, setMenu] = createSignal<{ id: string; x: number; y: number }>();
@@ -59,6 +62,7 @@ export default Plugin.define({
         let pressedID: string | undefined;
         let contextPressedID: string | undefined;
         let togglePressed = false;
+        let allPressed = false;
         let inserting = false;
         let hidePressedID: string | undefined;
         let hiding = false;
@@ -144,22 +148,24 @@ export default Plugin.define({
             context.ui.toast.show({ message: "Skill inserted, but its usage could not be saved.", variant: "warning" });
           }
         };
-        const hideSkill = async (skill, event: MouseEvent) => {
+        const toggleSkillVisibility = async (skill, event: MouseEvent) => {
           const activate = hidePressedID === skill.id && event.button === 0 && !event.isDragging && !hiding && !copying;
           hidePressedID = undefined;
           event.preventDefault();
           event.stopPropagation();
           if (!activate) return;
+          const unhide = isHidden(skill);
           hiding = true;
           try {
             await updateVisibility((draft) => {
-              draft.hiddenIDs[skill.id] = true;
+              if (unhide) delete draft.hiddenIDs[skill.id];
+              else draft.hiddenIDs[skill.id] = true;
             });
             setPointedID(undefined);
             dismiss();
             closeMenu();
           } catch {
-            context.ui.toast.show({ message: "Unable to save the hidden skill preference. The skill remains visible.", variant: "warning" });
+            context.ui.toast.show({ message: `Unable to save the hidden skill preference. ${unhide ? "The skill remains hidden." : "Its visibility is unchanged."}`, variant: "warning" });
           } finally {
             hiding = false;
           }
@@ -244,7 +250,7 @@ export default Plugin.define({
                 else void insertSkill(skill, event);
               }}
               onMouseScroll={dismiss}>
-              <text fg={pointedID() === skill.id ? context.theme.text.base : usageColor(skill)}
+              <text fg={isHidden(skill) ? "#243B6B" : pointedID() === skill.id ? context.theme.text.base : usageColor(skill)}
                 flexGrow={1} flexShrink={1} minWidth={0} wrapMode="word" selectable={false}>{skill.name}</text>
               <text fg={sourceColor(skill)} flexShrink={0} selectable={false}>
                 {scope(skill) === "Repo" || scope(skill) === "Built-in" ? "●" : " "}
@@ -272,6 +278,33 @@ export default Plugin.define({
                 setExpanded((value) => !value);
               }}>
               <text fg={context.theme.text.base} flexGrow={1} flexShrink={1} minWidth={0} height={1} selectable={false}><b>@ {title}</b></text>
+              <text fg={allHovered() ? context.theme.text.base : context.theme.text.muted}
+                width={showAll() ? 6 : 5} marginRight={1} flexShrink={0} selectable={false}
+                onMouseOver={(event) => {
+                  event.stopPropagation();
+                  setAllHovered(true);
+                  setToggleHovered(false);
+                  togglePressed = false;
+                }}
+                onMouseOut={(event) => {
+                  event.stopPropagation();
+                  setAllHovered(false);
+                  allPressed = false;
+                }}
+                onMouseDown={(event) => {
+                  allPressed = event.button === 0;
+                  togglePressed = false;
+                  event.preventDefault(); event.stopPropagation();
+                }}
+                onMouseUp={(event) => {
+                  const activate = allPressed && event.button === 0 && !event.isDragging;
+                  allPressed = false;
+                  event.preventDefault(); event.stopPropagation();
+                  if (!activate) return;
+                  clearHover();
+                  setShowAll((value) => !value);
+                  if (showAll()) setExpanded(true);
+                }}><b>{showAll() ? "[mine]" : "[all]"}</b></text>
               <text fg={toggleHovered() ? context.theme.text.base : context.theme.text.muted} width={3} flexShrink={0} selectable={false}><b>{expanded() ? "[-]" : "[+]"}</b></text>
             </box>
             <Show when={expanded()}>
@@ -341,7 +374,7 @@ export default Plugin.define({
                         hidePressedID = event.button === 0 ? skill().id : undefined;
                         event.preventDefault(); event.stopPropagation();
                       }}
-                      onMouseUp={(event) => { void hideSkill(skill(), event); }}>hide</text>
+                      onMouseUp={(event) => { void toggleSkillVisibility(skill(), event); }}>{isHidden(skill()) ? "unhide" : "hide"}</text>
                     <Show when={scope(skill()) === "Global"}>
                       <text fg={copyHovered() ? context.theme.text.base : context.theme.text.muted}
                         width="100%" height={1} selectable={false}

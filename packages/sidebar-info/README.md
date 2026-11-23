@@ -44,7 +44,9 @@ The dot and hover card's location value use the same source colors:
 Colors follow the active theme, including light/dark mode. The hover card's
 `Location:` label stays muted gray.
 Hovering highlights the skill name immediately in the heading's bright text
-color; leaving the row restores its usage color. The dot keeps its source color.
+color; leaving the row restores its usage color. Hidden skill names are an
+exception: they always use dark blue (`#243B6B`), even on hover or after recent
+uses. The dot keeps its source color.
 Hover over a skill for 250 ms to show a card with its name prefixed by `@`, source
 scope, exact active skill path, and description. The card disappears shortly after the pointer leaves the skill and
 card, on a skill click/scroll, terminal blur, resize, or session/location changes.
@@ -90,9 +92,18 @@ sidebar content, not necessarily immediately after Context.
 
 ## Hiding individual skills
 
-To collapse the entire section, left-click anywhere on its header—the title,
+To temporarily reveal hidden skills, left-click **[all]** just left of the
+collapse/expand control. It is gray by default and bright white on hover. The
+button becomes **[mine]**; click it to return to only non-hidden skills, when
+the label becomes **[all]** again. Revealing all also expands a
+collapsed section. This temporary view starts off in a new plugin instance and
+retains its state across session switches and registry updates; it never changes
+your saved hiding preferences, usage history, or prompt. Right-clicks and drags
+are ignored.
+
+To collapse the entire section, left-click its header outside **[all]**/**[mine]**—the title,
 empty space, or ASCII **[-]** control. The control is gray by default and bright
-white when any part of the header is hovered, with one blank column at the right
+white when the header outside **[all]**/**[mine]** is hovered, with one blank column at the right
 edge. Only the header remains, with **[+]**; click the header again to expand.
 This also dismisses hover cards and hides loading/empty
 messages. The section starts expanded and retains its state across session
@@ -114,7 +125,8 @@ details. It also closes on terminal blur, resize, collapse, session/location
 changes, or registry updates. Placement is clamped to the terminal boundaries.
 Your terminal must forward right-click events to OpenCode.
 
-A successful save immediately removes the row and dismisses the context menu.
+A successful save immediately removes the row (unless **[all]** is enabled) and
+dismisses the context menu.
 If saving fails, the skill remains visible and a warning is shown. Hiding does
 not select the skill, modify the draft, submit a prompt, or delete usage history.
 
@@ -124,7 +136,12 @@ Preferences persist across sessions, projects, plugin reloads, and OpenCode
 restarts, and synchronize across TUI instances. The same ID stays hidden even
 if its name or path changes, or it temporarily disappears from the registry.
 Global, repo, and built-in skills can all be hidden. Other users keep their own
-independent preferences. There is currently no unhide control in the sidebar.
+independent preferences. In the all-skills view, a hidden skill's context menu
+offers **unhide** instead of **hide**. Left-click it to clear the saved hidden
+flag; the skill returns to normal usage/hover colors and remains visible in the
+mine view. A failed save leaves the flag unchanged and shows a warning. The
+action has the same hover styling, right-click/drag guards, and menu dismissal
+behavior as **hide**.
 
 This is a sidebar-only preference: hidden skills remain available to the agent,
 explicit mentions, and OpenCode's built-in selectors. The old frontmatter
