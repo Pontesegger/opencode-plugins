@@ -2,9 +2,6 @@ import { Plugin } from "@opencode/plugin/tui";
 import { createSignal, For, Show } from "solid-js";
 import { favorites, showAllCommands, submitFavorite } from "./commands.mjs";
 
-const allCommandsLabel = "Show all commands";
-const items = [...favorites, allCommandsLabel];
-
 export default Plugin.define({
   id: "local.favorites",
   setup(context) {
@@ -36,12 +33,34 @@ export default Plugin.define({
                 setExpanded((value) => !value);
               }}>
               <text fg={context.theme.text.base} flexGrow={1} flexShrink={1} minWidth={0} height={1} selectable={false}><b>Favorites</b></text>
+              <text fg={hovered() === "all" ? context.theme.text.base : context.theme.text.muted} width={5} marginRight={1} flexShrink={0} selectable={false}
+                onMouseOver={(event) => { setHovered("all"); setToggleHovered(false); event.stopPropagation(); }}
+                onMouseOut={(event) => { setHovered(undefined); pressed = undefined; event.stopPropagation(); }}
+                onMouseDown={(event) => {
+                  togglePressed = false;
+                  pressed = event.button === 0 && !busy() ? "all" : undefined;
+                  event.preventDefault(); event.stopPropagation();
+                }}
+                onMouseUp={async (event) => {
+                  const activate = event.button === 0 && !event.isDragging && pressed === "all" && !busy();
+                  pressed = undefined;
+                  event.preventDefault(); event.stopPropagation();
+                  if (!activate) return;
+                  setBusy(true);
+                  try {
+                    await showAllCommands(context);
+                  } catch {
+                    context.ui.toast.show({ message: "Unable to open the command palette. It may be unavailable in the current view.", variant: "warning" });
+                  } finally {
+                    setBusy(false);
+                  }
+                }}>[all]</text>
               <text fg={toggleHovered() ? context.theme.text.base : context.theme.text.muted} width={3} flexShrink={0} selectable={false}><b>{expanded() ? "[-]" : "[+]"}</b></text>
             </box>
             <Show when={expanded()}>
               <box flexDirection="column" paddingLeft={2} flexShrink={0}>
-                <For each={items}>{(command) => (
-                  <box width="100%" flexShrink={0} marginTop={command === allCommandsLabel ? 1 : 0}
+                <For each={favorites}>{(command) => (
+                  <box width="100%" flexShrink={0}
                     onMouseOver={() => setHovered(command)}
                     onMouseOut={() => { setHovered(undefined); pressed = undefined; }}
                     onMouseDown={(event) => {
@@ -57,18 +76,15 @@ export default Plugin.define({
                       event.stopPropagation();
                       setBusy(true);
                       try {
-                        if (command === allCommandsLabel) await showAllCommands(context);
-                        else await submitFavorite(context, command);
+                        await submitFavorite(context, command);
                       } catch {
-                        context.ui.toast.show({ message: command === allCommandsLabel
-                          ? "Unable to open the command palette. It may be unavailable in the current view."
-                          : `Unable to run /${command}. The command may be unavailable in the current view.`, variant: "warning" });
+                        context.ui.toast.show({ message: `Unable to run /${command}. The command may be unavailable in the current view.`, variant: "warning" });
                       } finally {
                         setBusy(false);
                       }
                     }}>
                     <text fg={hovered() === command ? context.theme.text.base : context.theme.text.muted}
-                      selectable={false}>{command === allCommandsLabel ? command : `/${command}`}</text>
+                      selectable={false}>{`/${command}`}</text>
                   </box>
                 )}</For>
               </box>

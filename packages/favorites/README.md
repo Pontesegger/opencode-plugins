@@ -12,16 +12,17 @@ Adds a **Favorites** heading to the right-hand session sidebar with these rows:
 
 - `/clear`
 - `/compact`
-- **Show all commands**, separated from `/compact` by one empty line.
 
 The header has an ASCII **[-]** control, gray by default and bright white when any
-part of the header is hovered, with one blank column at the right edge. Left-click
-anywhere on the header—the title, empty space, or control—to collapse all rows and
+part of the header other than **[all]** is hovered, with one blank column at the right edge. Left-click
+the header—the title, empty space, or collapse/expand control—to collapse all rows and
 spacing, leaving only the header with **[+]**; click the header again to expand. Right-clicks and drags are
 ignored. The section starts expanded, retains its state while switching sessions,
 and toggles independently of Skills and Links without changing the prompt.
 
-Left-click **Show all commands** to open OpenCode's native command palette, the
+The header's **[all]** shortcut sits immediately left of the collapse/expand control
+and remains available when collapsed. It is gray by default and bright white on hover.
+Left-click **[all]** to open OpenCode's native command palette without toggling the section, the
 same action as **Ctrl+P** (`command.palette.show`). This preserves the unfinished
 prompt and attachments; it does not submit anything.
 

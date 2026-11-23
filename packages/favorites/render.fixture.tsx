@@ -53,11 +53,12 @@ try {
   assert.ok(lines.some((line) => line.includes("Favorites")));
   const clearRow = lines.findIndex((line) => line.includes("/clear"));
   const compactRow = lines.findIndex((line) => line.includes("/compact"));
-  const paletteRow = lines.findIndex((line) => line.includes("Show all commands"));
+  const paletteRow = lines.findIndex((line) => line.includes("[all]"));
+  const paletteColumn = lines[paletteRow].indexOf("[all]");
   assert.ok(clearRow >= 0 && compactRow === clearRow + 1);
-  assert.equal(paletteRow, compactRow + 2, "Palette link follows compact with exactly one empty line");
-  assert.equal(lines[compactRow + 1].trim(), "", "The separator is an empty line");
-  assert.equal(lines[paletteRow].indexOf("Show all commands"), lines[clearRow].indexOf("/clear"), "Palette link aligns with the other entries");
+  assert.equal(paletteRow, clearRow - 1, "Palette shortcut shares the header line");
+  assert.ok(lines[paletteRow].includes("[all] [-]"), "Palette shortcut sits left of the collapse control");
+  assert.ok(!lines.some((line) => line.includes("Show all commands")), "The old palette row is removed");
   const column = lines[clearRow].indexOf("/clear");
   prompt.setText("Do not send this unfinished draft");
   await setup.mockMouse.click(column + 2, clearRow);
@@ -78,19 +79,34 @@ try {
   await setup.renderOnce();
   assert.equal(actions.length, 2, "Dragging away never runs commands");
   prompt.setText("Keep this unfinished draft");
-  await setup.mockMouse.click(column + 2, paletteRow, 2);
+  await setup.mockMouse.click(paletteColumn + 2, paletteRow, 2);
   await setup.renderOnce();
   assert.equal(actions.length, 2, "Right-click never opens the palette");
-  await setup.mockMouse.pressDown(column + 2, paletteRow);
+  await setup.mockMouse.pressDown(paletteColumn + 2, paletteRow);
   await setup.mockMouse.moveTo(0, 10);
   await setup.mockMouse.release(0, 10);
   await setup.renderOnce();
   assert.equal(actions.length, 2, "Dragging away never opens the palette");
-  await setup.mockMouse.click(column + 2, paletteRow);
+  await setup.mockMouse.pressDown(0, 10);
+  await setup.mockMouse.moveTo(paletteColumn + 2, paletteRow);
+  await setup.mockMouse.release(paletteColumn + 2, paletteRow);
+  await setup.renderOnce();
+  assert.equal(actions.length, 2, "Dragging onto the shortcut never opens the palette");
+  const toggleColumn = lines[paletteRow].indexOf("[-]");
+  for (const [start, end] of [[paletteColumn + 2, toggleColumn + 1], [toggleColumn + 1, paletteColumn + 2]]) {
+    await setup.mockMouse.pressDown(start, paletteRow);
+    await setup.mockMouse.moveTo(end, paletteRow);
+    await setup.mockMouse.release(end, paletteRow);
+    await setup.renderOnce();
+    assert.equal(actions.length, 2, "Dragging between header controls never opens the palette");
+    assert.ok(setup.captureCharFrame().includes("/clear"), "Dragging between header controls never toggles the section");
+  }
+  await setup.mockMouse.click(paletteColumn + 2, paletteRow);
   await new Promise((resolve) => setImmediate(resolve));
   await setup.renderOnce();
   assert.deepEqual(actions, ["clear", "compact", "palette"], "Palette click dispatches the native Ctrl+P action once");
   assert.equal(prompt.plainText, "Keep this unfinished draft", "Opening the palette preserves the draft");
+  assert.ok(setup.captureCharFrame().includes("/clear"), "Palette click does not collapse the section");
   await setup.mockMouse.moveTo(0, 10);
   await setup.renderOnce();
   unavailable = true;
@@ -101,7 +117,7 @@ try {
   assert.equal(actions.length, 3, "Unavailable command never runs");
   assert.equal(prompt.plainText, "Keep this draft when the command is unavailable");
   assert.equal(warnings.length, 1, "Unavailable slash action shows a warning");
-  await setup.mockMouse.click(column + 2, paletteRow);
+  await setup.mockMouse.click(paletteColumn + 2, paletteRow);
   await new Promise((resolve) => setImmediate(resolve));
   await setup.renderOnce();
   assert.equal(actions.length, 3, "Unavailable palette never runs");
@@ -123,7 +139,15 @@ try {
   assert.equal(icon.x + icon.width, 89, "One blank column follows the control");
   const heading = findText(setup.renderer.root, "Favorites");
   const originalHeight = heading.parent.parent.height;
-  for (const [label, x] of [["title", heading.x + 2], ["empty space", icon.x - 2], ["right padding", icon.x + icon.width]] as const) {
+  assert.equal(originalHeight, 3, "Expanded section occupies only the header and two favorite rows");
+  const all = findText(setup.renderer.root, "[all]");
+  assert.equal(all.width, 5, "Palette shortcut occupies five visible columns");
+  assert.deepEqual(all.fg, RGBA.fromHex("#888888"), "Palette shortcut is gray by default");
+  await setup.mockMouse.moveTo(all.x + 2, all.y);
+  await setup.renderOnce();
+  assert.deepEqual(all.fg, RGBA.fromHex("#ffffff"), "Palette shortcut highlights on hover");
+  assert.deepEqual(icon.fg, RGBA.fromHex("#888888"), "Palette hover does not highlight the toggle");
+  for (const [label, x] of [["title", heading.x + 2], ["empty space", heading.x + 10], ["right padding", icon.x + icon.width]] as const) {
     await setup.mockMouse.moveTo(x, heading.y);
     await setup.renderOnce();
     assert.deepEqual(icon.fg, RGBA.fromHex("#ffffff"), `Hovering the ${label} highlights the toggle`);
@@ -163,11 +187,20 @@ try {
   assert.ok(findText(setup.renderer.root, "Favorites"), "Collapsed header remains visible");
   assert.ok(findText(setup.renderer.root, "[+]"), "Collapsed header has an ASCII plus control");
   for (const text of ["/clear", "/compact", "Show all commands"]) {
-    assert.ok(!findText(setup.renderer.root, text), "Collapse removes every entry and the palette separator");
+    assert.ok(!findText(setup.renderer.root, text), "Collapse removes every favorite row");
   }
   assert.equal(heading.parent.parent.height, 1, "Collapsed section occupies only the header line");
   assert.equal(actions.length, 3, "Toggle does not dispatch favorite commands");
   assert.equal(prompt.plainText, "Keep this draft when the command is unavailable", "Toggle preserves the draft");
+  unavailable = false;
+  const collapsedAll = findText(setup.renderer.root, "[all]");
+  assert.ok(collapsedAll, "Collapsed header retains the palette shortcut");
+  await setup.mockMouse.click(collapsedAll.x + 2, collapsedAll.y);
+  await new Promise((resolve) => setImmediate(resolve));
+  await setup.renderOnce();
+  assert.deepEqual(actions, ["clear", "compact", "palette", "palette"], "Collapsed shortcut opens the palette exactly once");
+  assert.ok(findText(setup.renderer.root, "[+]"), "Palette click does not expand the section");
+  assert.equal(prompt.plainText, "Keep this draft when the command is unavailable", "Collapsed shortcut preserves the draft");
   setSidebarWidth(24);
   setup.renderer.resize(84, 20);
   await setup.renderOnce();
@@ -180,9 +213,11 @@ try {
   assert.deepEqual(plus.fg, RGBA.fromHex("#ffffff"), "Expand control turns bright white on hover");
   assert.equal(plus.width, 3, "Expand control occupies three visible columns");
   assert.equal(plus.x + plus.width, 83, "Icon keeps its right padding after resize");
+  const resizedAll = findText(setup.renderer.root, "[all]");
+  assert.equal(resizedAll.x + resizedAll.width + 1, plus.x, "Palette shortcut stays left of the toggle after resize");
   await setup.mockMouse.click(plus.x + 2, plus.y);
   await setup.renderOnce();
-  assert.ok(findText(setup.renderer.root, "/clear") && findText(setup.renderer.root, "Show all commands"), "Expand restores all entries");
+  assert.ok(findText(setup.renderer.root, "/clear") && findText(setup.renderer.root, "[all]"), "Expand restores favorite rows alongside the header shortcut");
   assert.equal(heading.parent.parent.height, originalHeight, "Expand restores the original section height");
   console.log("PASS: Favorites dispatch and draft preservation; full-row collapse/expand (title, empty space, padding and icon), right padding and resize, restored entries, ignored right-clicks/drags.");
 } finally {
