@@ -279,7 +279,7 @@ export default Plugin.define({
               }}>
               <text fg={context.theme.text.base} flexGrow={1} flexShrink={1} minWidth={0} height={1} selectable={false}><b>@ {title}</b></text>
               <text fg={allHovered() ? context.theme.text.base : context.theme.text.muted}
-                width={showAll() ? 6 : 5} marginRight={1} flexShrink={0} selectable={false}
+                width={showAll() ? 5 : 6} marginRight={1} flexShrink={0} selectable={false}
                 onMouseOver={(event) => {
                   event.stopPropagation();
                   setAllHovered(true);
@@ -304,7 +304,7 @@ export default Plugin.define({
                   clearHover();
                   setShowAll((value) => !value);
                   if (showAll()) setExpanded(true);
-                }}><b>{showAll() ? "[mine]" : "[all]"}</b></text>
+                }}><b>{showAll() ? "[all]" : "[mine]"}</b></text>
               <text fg={toggleHovered() ? context.theme.text.base : context.theme.text.muted} width={3} flexShrink={0} selectable={false}><b>{expanded() ? "[-]" : "[+]"}</b></text>
             </box>
             <Show when={expanded()}>

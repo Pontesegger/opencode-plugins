@@ -92,10 +92,11 @@ sidebar content, not necessarily immediately after Context.
 
 ## Hiding individual skills
 
-To temporarily reveal hidden skills, left-click **[all]** just left of the
-collapse/expand control. It is gray by default and bright white on hover. The
-button becomes **[mine]**; click it to return to only non-hidden skills, when
-the label becomes **[all]** again. Revealing all also expands a
+The toggle just left of the collapse/expand control shows the current view:
+**[mine]** for only non-hidden skills and **[all]** for every skill.
+It is gray by default and bright white on hover. To temporarily reveal hidden
+skills, left-click **[mine]**; the label becomes **[all]**. Click **[all]** to
+return to only non-hidden skills and the **[mine]** label. Revealing all also expands a
 collapsed section. This temporary view starts off in a new plugin instance and
 retains its state across session switches and registry updates; it never changes
 your saved hiding preferences, usage history, or prompt. Right-clicks and drags

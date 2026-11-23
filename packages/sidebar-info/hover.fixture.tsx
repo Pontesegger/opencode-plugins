@@ -162,7 +162,7 @@ try {
    assert.ok(!setup.captureCharFrame().includes("Hidden skill"), "Saved user preference hides the skill row on startup");
    const findText = (node, text) => node.plainText === text ? node
      : node.getChildren().map((child) => findText(child, text)).find(Boolean);
-   const initialAll = findText(setup.renderer.root, "[all]");
+    const initialAll = findText(setup.renderer.root, "[mine]");
    await setup.mockMouse.click(initialAll.x + 2, initialAll.y);
    await setup.renderOnce();
    const initiallyHidden = findText(setup.renderer.root, "Hidden skill");
@@ -170,7 +170,7 @@ try {
    await setup.mockMouse.moveTo(initiallyHidden.x, initiallyHidden.y);
    await setup.renderOnce();
    assert.deepEqual(initiallyHidden.fg, hiddenBlue, "Hidden skill stays dark blue on hover");
-   const initialMine = findText(setup.renderer.root, "[mine]");
+    const initialMine = findText(setup.renderer.root, "[all]");
    await setup.mockMouse.click(initialMine.x + 2, initialMine.y);
    await setup.mockMouse.moveTo(0, 0);
    await setup.renderOnce();
@@ -446,9 +446,9 @@ try {
   assert.deepEqual(icon.fg, muted, "Control returns to gray when the pointer leaves");
   assert.equal(icon.x + icon.width, 119, "Icon leaves one blank column at the right edge");
    const header = findText(setup.renderer.root, "@ Skills");
-   const all = findText(setup.renderer.root, "[all]");
-   assert.ok(all, "Header includes an all-skills control");
-   assert.equal(all.width, 5, "All control occupies five columns");
+    const all = findText(setup.renderer.root, "[mine]");
+    assert.ok(all, "Header labels the current filtered view as mine");
+    assert.equal(all.width, 6, "Mine label occupies six columns");
    assert.equal(all.x + all.width + 1, icon.x, "All sits left of collapse with a one-column gap");
    assert.deepEqual(all.fg, muted, "All is gray by default");
    const visibilityBeforeAll = structuredClone(savedVisibility);
@@ -477,9 +477,9 @@ try {
    await setup.renderOnce();
    assert.ok(findText(setup.renderer.root, "Hidden skill"), "All reveals saved hidden skills");
    assert.deepEqual(findText(setup.renderer.root, "Hidden skill").fg, hiddenBlue, "Hidden color stays dark blue after usage expires");
-   assert.equal(all.plainText, "[mine]", "All view offers switching back to mine");
-   assert.equal(all.width, 6, "Mine label fits completely");
-   assert.equal(all.x + all.width + 1, icon.x, "Mine remains beside collapse without moving it");
+    assert.equal(all.plainText, "[all]", "All view is labeled all");
+    assert.equal(all.width, 5, "All label fits completely");
+    assert.equal(all.x + all.width + 1, icon.x, "All remains beside collapse without moving it");
    assert.ok(findText(setup.renderer.root, "[-]"), "All does not collapse the header");
    assertSingleList();
    setRegisteredSkills([...skills]);
@@ -489,7 +489,8 @@ try {
    await setup.mockMouse.click(all.x + 2, all.y);
    await setup.renderOnce();
    assert.ok(!findText(setup.renderer.root, "Hidden skill"), "Clicking all again restores the filtered list");
-   assert.equal(all.plainText, "[all]", "Mine view offers switching to all");
+    assert.equal(all.plainText, "[mine]", "Filtered view is labeled mine again");
+    assert.equal(all.width, 6, "Restored mine label fits completely");
    assertSingleList();
    assert.deepEqual(savedVisibility, visibilityBeforeAll, "All never changes hiding preferences");
    assert.deepEqual(savedUsage, historyBeforeAging, "All does not record usage");
@@ -571,7 +572,7 @@ try {
    await setup.mockMouse.click(plus.x, plus.y);
    await setup.renderOnce();
    assert.ok(findText(setup.renderer.root, "[+]"), "Section is collapsed before revealing all");
-   const collapsedAll = findText(setup.renderer.root, "[all]");
+    const collapsedAll = findText(setup.renderer.root, "[mine]");
    await setup.mockMouse.click(collapsedAll.x + 2, collapsedAll.y);
    await setup.renderOnce();
    assert.ok(findText(setup.renderer.root, "[-]") && findText(setup.renderer.root, "Hidden skill"),
@@ -745,7 +746,7 @@ try {
    await setup.renderOnce();
    assert.ok(!findText(setup.renderer.root, "Alpha"), "A new plugin instance restores durable visibility preferences");
    assert.ok(findText(setup.renderer.root, "Builtin"), "Other skills remain visible after reload");
-   const reveal = findText(setup.renderer.root, "[all]");
+    const reveal = findText(setup.renderer.root, "[mine]");
    await setup.mockMouse.click(reveal.x + 2, reveal.y);
    await setup.renderOnce();
    const openUnhideMenu = async () => {
@@ -792,7 +793,7 @@ try {
    await setup.renderOnce();
    assert.ok(findText(setup.renderer.root, "hide"), "Unhidden skills offer hide again");
    await setup.mockMouse.click(0, 0);
-   const mine = findText(setup.renderer.root, "[mine]");
+    const mine = findText(setup.renderer.root, "[all]");
    await setup.mockMouse.click(mine.x + 2, mine.y);
    await setup.renderOnce();
    assert.ok(findText(setup.renderer.root, "Alpha") && !findText(setup.renderer.root, "Hidden skill"), "Mine keeps newly unhidden skills");
