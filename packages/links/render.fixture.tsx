@@ -7,6 +7,8 @@ import plugin from "./tui";
 const [sessionID, setSessionID] = createSignal("first");
 const [enabled, setEnabled] = createSignal(true);
 const [sidebarWidth, setSidebarWidth] = createSignal(36);
+const [sessionRevision, setSessionRevision] = createSignal(0);
+const [directoryOverride, setDirectoryOverride] = createSignal<string>();
 const values = new Map<string, { url: string; label: string; description?: string }[]>([["first", []], ["second", [{ url: "https://other.example/", label: "Other session" }]]]);
 const listeners = new Set<(event: any) => void>();
 const reconnects = new Set<(event: any) => void>();
@@ -33,7 +35,7 @@ function HostSlot() {
       } },
     }) },
     data: {
-      session: { get: (id) => ({ location: { directory: `/project/${id}` } }) },
+      session: { get: (id) => { sessionRevision(); return { location: { directory: directoryOverride() ?? `/project/${id}` } }; } },
       listen: (callback) => { reconnects.add(callback); return () => reconnects.delete(callback); },
     },
     theme: {
@@ -90,6 +92,35 @@ try {
   emit("first");
   output = await frame();
   assert.ok(output.includes("Plugin docs") && output.includes("Preview"), `Live update: ${JSON.stringify(output)}`);
+  // Compaction updates the reactive session record without switching sessions.
+  // A transient read failure must not discard the links already on screen.
+  fail = true;
+  const beforeCompaction = calls.length;
+  setSessionRevision((value) => value + 1);
+  output = await frame();
+  assert.ok(output.includes("Plugin docs") && output.includes("Preview"), "Session updates during compaction preserve known links when RPC is unavailable");
+  assert.equal(calls.length, beforeCompaction, "Updating the same session record does not refetch or clear its links");
+  emit("first");
+  output = await frame();
+  assert.ok(output.includes("Plugin docs") && output.includes("Preview"), "A failed explicit refresh also preserves known links");
+  fail = false;
+  delay = true;
+  emit("first");
+  setSessionRevision((value) => value + 1);
+  output = await frame();
+  assert.ok(output.includes("Plugin docs") && output.includes("Preview"), "Session updates preserve visible links while a refresh is pending");
+  assert.equal(delayed.length, 1, "A session update does not supersede an in-flight link refresh");
+  delayed.pop()!.resolve(values.get("first"));
+  delay = false;
+  await frame();
+  fail = true;
+  setDirectoryOverride("/project/moved");
+  output = await frame();
+  assert.deepEqual(calls.at(-1)!.location, { directory: "/project/moved" }, "An actual session move still refreshes at the new location");
+  assert.ok(output.includes("Plugin docs") && output.includes("Preview"), "A failed location refresh preserves the same session's visible links");
+  fail = false;
+  setDirectoryOverride(undefined);
+  output = await frame();
   assert.ok(output.indexOf("Links") > output.indexOf("Example skill"), "Links appears below Skills");
   const lines = output.split("\n");
   const row = lines.findIndex((line) => line.includes("Plugin docs"));

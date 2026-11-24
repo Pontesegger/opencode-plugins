@@ -60,6 +60,10 @@ The session sidebar must be visible to see the section.
 - Entries use native terminal hyperlinks. Open them with your terminal's link
   gesture (often Ctrl+click or Cmd+click); terminal hyperlink support is required.
 - Updates appear live; reconnecting or revisiting a session reloads durable state.
+  Updates to the current session record (including during compaction) do not clear
+  its visible links or restart link reads. Delayed or failed refreshes preserve
+  already displayed links; switching sessions still clears the previous session's
+  links immediately.
   Links appears below the sidebar content (including Skills), independent of
   plugin loading order. The entire section, heading and spacing included, stays
   hidden until the current session contains at least one link. There are no empty,
@@ -94,4 +98,5 @@ updates, parallel writes, tool registration, proactive instructions, and cleanup
 The Bun renderer test covers placement below Skills, empty-session invisibility,
 first-post visibility, gray styling, detailed hover cards and dismissal,
 legacy links without descriptions, sidebar updates, hyperlinks, session switching,
-stale requests, reconnection, and subscription cleanup.
+stale requests, reactive session updates during compaction, delayed/failed refreshes,
+reconnection, and subscription cleanup.

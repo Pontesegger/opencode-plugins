@@ -24,6 +24,9 @@ export default Plugin.define({
         const [toggleHovered, setToggleHovered] = createSignal(false);
         const [anchor, setAnchor] = createSignal({ x: 0, y: 0 });
         const [size, setSize] = createSignal({ width: context.renderer.width, height: context.renderer.height });
+        // Session records also change during compaction and ordinary execution.
+        // Only a different directory should invalidate the RPC location.
+        const directory = createMemo(() => context.data.session.get(props.sessionID)?.location?.directory ?? context.location?.directory);
         const hovered = createMemo(() => links().find((link) => link.url === hoveredURL()));
         const placement = createMemo(() => tooltipPlacement(anchor().x, anchor().y, size().width, size().height));
         let hoverTimer: ReturnType<typeof setTimeout> | undefined;
@@ -69,7 +72,7 @@ export default Plugin.define({
           const request = ++generation;
           try {
             const value = await rpc.list({ sessionID }, {
-              location: context.data.session.get(sessionID)?.location ?? context.location,
+              location: directory() === undefined ? undefined : { directory: directory() },
               signal: abort.signal,
             });
             if (abort.signal.aborted || request !== generation) return;
@@ -86,10 +89,13 @@ export default Plugin.define({
         const stopReconnect = context.data.listen(({ details }) => {
           if (details.type === "server.connected" || details.type === "location.shutdown") void refresh();
         });
+        let visibleSessionID: string | undefined;
         createEffect(() => {
-          props.sessionID;
-          clearHover();
-          setLinks([]);
+          if (visibleSessionID !== props.sessionID) {
+            visibleSessionID = props.sessionID;
+            clearHover();
+            setLinks([]);
+          }
           void refresh();
         });
         onCleanup(() => { abort.abort(); generation++; stopUpdates(); stopReconnect(); });
